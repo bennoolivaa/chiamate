@@ -196,6 +196,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 }
 .riga-pulsanti .pulsante-chiama { flex: 2; }
 .riga-pulsanti .salta { flex: 1; }
+.riga-pulsanti .tondo-chiama { flex: none; }
 .riquadro { background: var(--carta); border-radius: 16px; padding: 12px 14px; margin: 12px 0; border: 1.5px solid #dfe4ea; }
 .info > div { padding: 5px 0; }
 .etichetta { display: inline-block; min-width: 110px; color: var(--tenue); font-weight: 600; }
@@ -302,3 +303,7 @@ table.anteprima { width: 100%; border-collapse: collapse; background: var(--cart
 .riga-pulsanti .doppio { flex: 1.4; }
 .riga-pulsanti .secondario.grande { font-size: 16px; line-height: 1.15; }
 .centrato { text-align: center; margin: 0 0 8px; }
+@media (min-width: 700px) {
+  .navigazione { justify-content: center; }
+  .navigazione a { max-width: 160px; }
+}

@@ -461,6 +461,32 @@ await prova('Salta: passa al prossimo senza cambiare nulla, e non ripropone i sa
   await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
 });
 
+await prova('Dal PC: "Sto chiamando" segnala agli altri senza far partire la chiamata', async () => {
+  const pc = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'it-IT', timezoneId: 'Europe/Rome' });
+  await pc.addInitScript(() => {
+    window.__chiamate = [];
+    document.addEventListener('click', e => { const a = e.target.closest('a[href^="tel:"]'); if (a) { e.preventDefault(); window.__chiamate.push(a.href); } });
+  });
+  const p = await pc.newPage();
+  await p.goto(indirizzo);
+  await p.getByLabel('Email').fill('benedetto@esempio.it');
+  await p.getByLabel('Password', { exact: true }).fill('prova');
+  await p.getByRole('button', { name: 'Entra' }).click();
+  await p.getByRole('button', { name: 'Benedetto', exact: true }).click();
+  await p.locator('.riga-testo').first().click();
+  const id = Number(await p.evaluate(() => location.hash.split('/')[2]));
+  await p.getByRole('button', { name: 'Sto chiamando' }).click();
+  await p.getByText('Stai chiamando').first().waitFor({ timeout: 2000 });
+  verifica((await p.evaluate(() => window.__chiamate.length)) === 0, 'è partita una chiamata');
+  await p.waitForTimeout(400);
+  const chi = await p.evaluate(async id => (await window.__finto.from('aziende').select('*').eq('id', id)).data[0].in_chiamata_da, id);
+  verifica(chi === 'Benedetto', 'gli altri non lo vedono: ' + chi);
+  await p.screenshot({ path: path.join(cartellaFoto, '18-pc-sto-chiamando.png') });
+  // sul telefono invece il tasto non c'è
+  verifica(!(await page.getByRole('button', { name: 'Sto chiamando' }).count()), 'sul telefono compare "Sto chiamando"');
+  await pc.close();
+});
+
 await prova('Manca internet: messaggio chiaro', async () => {
   await contesto.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));

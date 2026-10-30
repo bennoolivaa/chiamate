@@ -1,7 +1,10 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { ESITI, ESITI_NASCOSTI, NOMI, GIRI, esito as datiEsito } from './config.js';
 import { stato, daChiamare, comuni, storicoDi, registraChiamata, chiamaUnAltro, chiChiama } from './dati.js';
-import { useDati, vai, avviso, errore, Intestazione, PulsanteChiama, BadgeInChiamata, AvvisoInChiamata, nonSalvato, puoiUscire } from './app.js';
+import {
+  useDati, vai, avviso, errore, Intestazione, PulsanteChiama, PulsanteSegna, BadgeInChiamata, AvvisoInChiamata,
+  nonSalvato, puoiUscire, daPc,
+} from './app.js';
 import { caricaComuni, comuniPronti, consigliaDemo, tappeDelGiorno, stradaDelGiorno } from './giri.js';
 import {
   dataOra, soloOra, giornoLungo, telefonoLeggibile, inizioGiorno, stessoGiorno,
@@ -329,7 +332,9 @@ export function Scheda({ id }) {
             <button class="pulsante primario grande" disabled=${salvo} onClick=${() => salva(true)}>${salvo ? 'Salvo…' : 'Salva e passa al prossimo'}</button>
           </div>`
         : html`<div class="riga-pulsanti">
-            <${PulsanteChiama} azienda=${a} grande poi=${vaiAgliEsiti} />
+            ${daPc
+              ? html`<${PulsanteSegna} azienda=${a} poi=${vaiAgliEsiti} /><${PulsanteChiama} azienda=${a} poi=${vaiAgliEsiti} />`
+              : html`<${PulsanteChiama} azienda=${a} grande poi=${vaiAgliEsiti} />`}
             <button class="pulsante secondario grande salta" onClick=${salta}>Salta ›</button>
           </div>`}
     </div>

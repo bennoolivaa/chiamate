@@ -75,6 +75,22 @@ export function PulsanteChiama({ azienda, grande, poi, testo = 'Chiama' }) {
   </a>`;
 }
 
+// Su un computer (mouse o trackpad) il collegamento tel: non serve: si compone dal telefono
+export const daPc = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+// "Sto chiamando" senza far partire la chiamata: per chi lavora dal PC e compone dal telefono
+export function PulsanteSegna({ azienda, poi }) {
+  const altro = chiamaUnAltro(azienda);
+  function clic() {
+    if (altro && !confirm(`${altro} la sta chiamando adesso. Vuoi chiamare lo stesso?`)) return;
+    segnaInChiamata(azienda.id, !!altro)
+      .then(chi => { if (chi && chi !== stato.nome) avviso(`${chi} la stava già chiamando`, 'errore'); })
+      .catch(errore);
+    poi?.();
+  }
+  return html`<button class="pulsante pulsante-chiama grande" onClick=${clic}>${icone.telefono}<span>${altro ? 'Chiamo lo stesso' : 'Sto chiamando'}</span></button>`;
+}
+
 export function BadgeInChiamata({ azienda }) {
   const chi = chiChiama(azienda);
   if (chi) {

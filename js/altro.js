@@ -4,7 +4,7 @@ import {
   stato, esci, trovaPerTelefono, aggiungiAzienda, aggiornaAzienda, eliminaAzienda,
   importaAziende, cercaOnline, comuni,
 } from './dati.js';
-import { useDati, vai, indietro, avviso, errore, Intestazione, icone, nonSalvato } from './app.js';
+import { useDati, vai, indietro, avviso, errore, Intestazione, icone, nonSalvato, daPc } from './app.js';
 import {
   normalizzaTelefono, telefonoLeggibile, dataOra, versoInput, daInput, leggiTestoCopiato, maiuscoleIniziali,
   leggiTabella, capisciColonne, creaCsv, scaricaFile, dataPerFile, messaggioErrore,
@@ -164,8 +164,10 @@ export function Aggiungi() {
       <div class="barra-fissa">
         ${!pronto && normalizzato && html`<p class="aiuto centrato">Manca il nome dell'azienda.</p>`}
         <div class="riga-pulsanti">
-          <a class=${'pulsante pulsante-chiama grande doppio' + (pronto && !salvo ? '' : ' disattivo')} href=${pronto ? 'tel:' + normalizzato : undefined}
-            onClick=${clicChiama} aria-disabled=${!pronto}>${icone.telefono}<span>Aggiungi e chiama</span></a>
+          ${daPc
+            ? html`<button class="pulsante pulsante-chiama grande doppio" disabled=${!pronto || salvo} onClick=${() => salva(true)}>${icone.telefono}<span>Aggiungi: sto chiamando</span></button>`
+            : html`<a class=${'pulsante pulsante-chiama grande doppio' + (pronto && !salvo ? '' : ' disattivo')} href=${pronto ? 'tel:' + normalizzato : undefined}
+                onClick=${clicChiama} aria-disabled=${!pronto}>${icone.telefono}<span>Aggiungi e chiama</span></a>`}
           <button class="pulsante secondario grande" disabled=${!pronto || salvo} onClick=${() => salva(false)}>Solo aggiungi</button>
         </div>
       </div>`}
