@@ -56,6 +56,7 @@ export const icone = {
   orologio: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7z"/></svg>`,
   calendario: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11zM7 11h5v5H7z"/></svg>`,
   numeri: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>`,
+  casa: html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg>`,
 };
 
 // Tasto "Chiama": apre il telefono e segnala agli altri "sto chiamando"
@@ -105,10 +106,11 @@ export function AvvisoInChiamata({ azienda }) {
 
 export function Intestazione({ titolo, conIndietro, destra }) {
   return html`<header class="intestazione">
-    ${conIndietro ? html`<button class="indietro" onClick=${() => puoiUscire() && indietro()}>‹ Indietro</button>` : html`<h1>${titolo}</h1>`}
-    ${conIndietro && titolo ? html`<h1 class="titolo-piccolo">${titolo}</h1>` : ''}
+    ${conIndietro ? html`<button class="indietro" onClick=${() => puoiUscire() && indietro()}>‹ Indietro</button>
+      <button class="pulsante-home" onClick=${() => puoiUscire() && vai('/')} aria-label="Torna a Da chiamare">${icone.casa}<span>Home</span></button>` : html`<h1>${titolo}</h1>`}
     ${destra !== undefined ? destra : html`<button class="pulsante-altro" onClick=${() => puoiUscire() && vai('/altro')}>Altro</button>`}
-  </header>`;
+  </header>
+  ${conIndietro && titolo ? html`<h1 class="titolo-pagina">${titolo}</h1>` : ''}`;
 }
 
 // ---- Accesso ----

@@ -422,6 +422,45 @@ await prova('Numeri: contatori per persona', async () => {
   verifica(riga.split(/\s+/).slice(1).join(' ') === atteso.join(' '), `${riga} invece di ${atteso}`);
 });
 
+await prova('Tasto Home: dalla scheda torna a "Da chiamare"', async () => {
+  await page.getByRole('link', { name: /Da chiamare/ }).click();
+  await page.getByPlaceholder('Cerca nome o numero').fill('');
+  await page.locator('.riga-testo').first().click();
+  await page.locator('.scheda-nome').waitFor();
+  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
+  await page.getByRole('heading', { name: 'Da chiamare' }).waitFor({ timeout: 3000 });
+});
+
+await prova('Scheda: tasto "Chiedi a Google" con nome, numero e domanda', async () => {
+  await page.locator('.riga-testo').first().click();
+  const link = page.getByRole('link', { name: /Chiedi a Google/ });
+  const href = await link.getAttribute('href');
+  const nome = await page.locator('.scheda-nome').innerText();
+  const q = new URL(href).searchParams;
+  verifica(href.startsWith('https://www.google.com/search') && q.get('udm') === '50' && q.get('q').includes(nome) && q.get('q').includes('fatturato'), href);
+  verifica((await link.getAttribute('target')) === '_blank', 'non apre una nuova scheda');
+  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
+});
+
+await prova('Salta: passa al prossimo senza cambiare nulla, e non ripropone i saltati', async () => {
+  await page.locator('.riga-testo').first().click();
+  const primo = await page.locator('.scheda-nome').innerText();
+  const id = Number(await page.evaluate(() => location.hash.split('/')[2]));
+  const prima = await finto(async id => JSON.stringify((await window.__finto.from('aziende').select('*').eq('id', id)).data[0]), id);
+  await tocca('Salta ›');
+  await page.getByText('Saltata. Ora:').first().waitFor();
+  await page.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, primo, { timeout: 3000 })
+    .catch(() => { throw new Error('non è passato al prossimo'); });
+  const secondo = await page.locator('.scheda-nome').innerText();
+  await tocca('Salta ›');
+  await page.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, secondo);
+  const terzo = await page.locator('.scheda-nome').innerText();
+  verifica(terzo !== primo, 'ha riproposto quello appena saltato');
+  const dopo = await finto(async id => JSON.stringify((await window.__finto.from('aziende').select('*').eq('id', id)).data[0]), id);
+  verifica(prima === dopo, 'la scheda saltata è cambiata');
+  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
+});
+
 await prova('Manca internet: messaggio chiaro', async () => {
   await contesto.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));

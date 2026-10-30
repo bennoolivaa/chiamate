@@ -48,13 +48,20 @@ h1, h2, h3 { line-height: 1.2; margin: 0; }
   min-height: 60px; padding-top: env(safe-area-inset-top, 0px);
 }
 .intestazione h1 { font-size: 26px; font-weight: 800; flex: 1; }
-.intestazione .titolo-piccolo { font-size: 19px; text-align: center; }
+.titolo-pagina { font-size: 25px; font-weight: 800; margin: 4px 0 8px; }
 .indietro, .pulsante-altro {
   min-height: 48px; padding: 0 14px; border-radius: 12px;
   background: var(--carta); border: 1.5px solid var(--bordo);
   font-weight: 700; font-size: 16px; cursor: pointer;
 }
 .indietro { padding-left: 10px; }
+.pulsante-home {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 48px; padding: 0 12px; border-radius: 12px;
+  background: var(--carta); border: 1.5px solid var(--bordo);
+  font-weight: 700; font-size: 16px; color: var(--blu); cursor: pointer;
+}
+.pulsante-home svg { width: 22px; height: 22px; fill: currentColor; }
 .pulsante-altro { margin-left: auto; }
 
 /* ---- Pulsanti ---- */
@@ -181,7 +188,14 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 
 /* ---- Scheda ---- */
 .scheda-nome { font-size: 25px; font-weight: 800; margin-top: 4px; }
-.scheda-sotto { margin: 4px 0 6px; color: var(--tenue); font-weight: 600; }
+.scheda-sotto { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 4px 0 6px; color: var(--tenue); font-weight: 600; }
+.chiedi-google {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 12px;
+  background: var(--carta); border: 1.5px solid var(--bordo); color: var(--blu);
+  font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap;
+}
+.riga-pulsanti .pulsante-chiama { flex: 2; }
+.riga-pulsanti .salta { flex: 1; }
 .riquadro { background: var(--carta); border-radius: 16px; padding: 12px 14px; margin: 12px 0; border: 1.5px solid #dfe4ea; }
 .info > div { padding: 5px 0; }
 .etichetta { display: inline-block; min-width: 110px; color: var(--tenue); font-weight: 600; }

@@ -132,8 +132,20 @@ export function DaChiamare() {
 }
 
 // ---- Scheda azienda + registrazione della chiamata ----
+// Apre la modalità IA di Google (udm=50) con la domanda già scritta; se non c'è, Google fa una ricerca normale
+function linkGoogleIA(a) {
+  const domanda = `${a.nome_azienda}${a.comune ? ' ' + a.comune : ''} tel. ${telefonoLeggibile(a.telefono)}: di cosa si occupa questa azienda, quanti dipendenti ha e che fatturato ha?`;
+  return 'https://www.google.com/search?udm=50&q=' + encodeURIComponent(domanda);
+}
+
+// Quelli saltati con "Salta" non vengono riproposti finché la lista non finisce
+const saltati = new Set();
 function prossimoDopo(id) {
-  return daChiamare(filtri).find(a => a.id !== id && !chiamaUnAltro(a));
+  const libera = a => a.id !== id && !chiamaUnAltro(a);
+  const lista = daChiamare(filtri);
+  let prossimo = lista.find(a => libera(a) && !saltati.has(a.id));
+  if (!prossimo && saltati.size) { saltati.clear(); prossimo = lista.find(libera); }
+  return prossimo;
 }
 
 export function Scheda({ id }) {
@@ -191,6 +203,15 @@ export function Scheda({ id }) {
     setTimeout(() => passo2.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
+  // Passa al prossimo senza cambiare nulla di questa azienda
+  function salta() {
+    if (!puoiUscire()) return;
+    saltati.add(a.id);
+    const prossimo = prossimoDopo(a.id);
+    if (prossimo) { avviso(`Saltata. Ora: ${prossimo.nome_azienda}`); vai('/azienda/' + prossimo.id); }
+    else avviso('Non ci sono altri numeri da chiamare.');
+  }
+
   async function salva(eProssimo) {
     if (e.chiede === 'richiamo' && !richiamo) { setProblema('Scegli quando richiamare.'); return; }
     if (e.chiede === 'appuntamento' && !appuntamento) { setProblema('Scegli giorno e ora della demo.'); return; }
@@ -223,7 +244,10 @@ export function Scheda({ id }) {
     <div class="scheda-testa">
       <${Intestazione} conIndietro destra=${html`<button class="pulsante-altro" onClick=${() => puoiUscire() && vai('/modifica/' + a.id)}>✏️ Modifica</button>`} />
       <h1 class="scheda-nome">${a.nome_azienda}</h1>
-      <p class="scheda-sotto">${a.comune || 'Comune?'} · ${telefonoLeggibile(a.telefono)}</p>
+      <div class="scheda-sotto">
+        <span>${a.comune || 'Comune?'} · ${telefonoLeggibile(a.telefono)}</span>
+        <a class="chiedi-google" href=${linkGoogleIA(a)} target="_blank" rel="noopener" aria-label="Chiedi a Google cosa fanno e che fatturato hanno">✨ Chiedi a Google</a>
+      </div>
     </div>
     <${AvvisoInChiamata} azienda=${a} />
     ${nuovaDiAltri && html`<div class="banner banner-info"><b>${nuovaDiAltri.utente_nome}</b> ha appena registrato: ${datiEsito(nuovaDiAltri.esito).nome}${nuovaDiAltri.nota ? ` – “${nuovaDiAltri.nota}”` : ''}</div>`}
@@ -304,7 +328,10 @@ export function Scheda({ id }) {
             <${PulsanteChiama} azienda=${a} poi=${vaiAgliEsiti} />
             <button class="pulsante primario grande" disabled=${salvo} onClick=${() => salva(true)}>${salvo ? 'Salvo…' : 'Salva e passa al prossimo'}</button>
           </div>`
-        : html`<${PulsanteChiama} azienda=${a} grande poi=${vaiAgliEsiti} />`}
+        : html`<div class="riga-pulsanti">
+            <${PulsanteChiama} azienda=${a} grande poi=${vaiAgliEsiti} />
+            <button class="pulsante secondario grande salta" onClick=${salta}>Salta ›</button>
+          </div>`}
     </div>
   </main>`;
 }
