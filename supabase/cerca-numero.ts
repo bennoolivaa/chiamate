@@ -1,6 +1,6 @@
 // Supabase Edge Function "cerca-numero": dato un numero, cerca l'azienda su Pagine Gialle / Pagine Bianche.
 // Da incollare in Supabase > Edge Functions > Deploy a new function > Via Editor (nome: cerca-numero).
-// Solo gli utenti collegati possono usarla (lasciare attivo "Verify JWT").
+// Solo Benedetto, Luca e Alessandro possono usarla: chiede al database se chi chiama è nella tabella "membri".
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -64,8 +64,29 @@ async function cerca(numero: string) {
   return [];
 }
 
+// Stesso controllo delle tabelle: con i dati di accesso di chi chiama, il database risponde true solo ai membri
+async function eMembro(richiesta: Request) {
+  try {
+    const risposta = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/rpc/e_membro`, {
+      method: 'POST',
+      headers: {
+        apikey: richiesta.headers.get('apikey') ?? '',
+        Authorization: richiesta.headers.get('Authorization') ?? '',
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    return risposta.ok && (await risposta.json()) === true;
+  } catch (_) {
+    return false;
+  }
+}
+
 Deno.serve(async (richiesta: Request) => {
   if (richiesta.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (!(await eMembro(richiesta))) {
+    return Response.json({ risultati: [], errore: 'Serve l\'accesso' }, { status: 401, headers: CORS });
+  }
   let numero = '';
   try { numero = String((await richiesta.json()).telefono || ''); } catch (_) { /* corpo vuoto */ }
   numero = numero.replace(/[^\d+]/g, '').replace(/^(\+|00)39/, '');
