@@ -235,10 +235,28 @@ table.numeri { width: 100%; border-collapse: collapse; background: var(--carta);
 .numeri tr.totale { background: #f3f5f8; }
 
 /* ---- Accesso ---- */
-.accesso { padding-top: 48px; }
-.accesso h1 { font-size: 28px; font-weight: 800; margin: 12px 0 8px; }
-.accesso .logo { border-radius: 18px; }
-.modulo .pulsante { width: 100%; margin-top: 20px; }
+.accesso {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 16px calc(24px + var(--sicuro));
+}
+.accesso-scheda {
+  width: 100%; max-width: 420px; padding: 28px 20px 22px;
+  background: var(--carta); border-radius: 24px; border: 1.5px solid #dfe4ea;
+  box-shadow: 0 12px 32px rgba(20, 54, 92, .10);
+}
+.accesso .logo { display: block; margin: 0 auto 10px; border-radius: 18px; }
+.accesso h1 { font-size: 27px; font-weight: 800; text-align: center; margin: 0; }
+.accesso-sotto { margin: 6px 0 4px; text-align: center; color: var(--tenue); font-weight: 500; }
+.accesso-piede { margin: 18px 0 0; text-align: center; color: var(--tenue); font-size: 15px; font-weight: 500; }
+.modulo .entra { width: 100%; margin-top: 18px; }
+.campo-password { position: relative; }
+.campo-password input { padding-right: 104px; }
+.campo-password .mostra {
+  position: absolute; right: 6px; top: calc(50% + 3px); transform: translateY(-50%);
+  min-height: 44px; min-width: 88px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: var(--blu-chiaro); color: var(--blu); font-weight: 700; font-size: 15px; cursor: pointer;
+}
 
 /* ---- Importa ---- */
 .passi { display: flex; gap: 6px; margin: 4px 0 14px; }

@@ -73,13 +73,13 @@ await prova('Accesso: password sbagliata mostra un messaggio chiaro', async () =
   await foto('01-accesso');
   verifica(await page.getByLabel('Resta collegato').isChecked(), '"Resta collegato" non attivo');
   await page.getByLabel('Email').fill('benedetto@esempio.it');
-  await page.getByLabel('Password').fill('sbagliata');
+  await page.getByLabel('Password', { exact: true }).fill('sbagliata');
   await tocca('Entra');
   await page.getByText('Email o password sbagliate').waitFor();
 });
 
 await prova('Accesso e scelta del nome', async () => {
-  await page.getByLabel('Password').fill('prova');
+  await page.getByLabel('Password', { exact: true }).fill('prova');
   await tocca('Entra');
   await page.getByText('Chi sei?').waitFor();
   await foto('02-chi-sei');
@@ -245,7 +245,7 @@ await prova('Due finestre: premo Chiama, io vedo "Stai chiamando tu", Luca vede 
   const luca = await contesto.newPage();
   await luca.goto(indirizzo);
   await luca.getByLabel('Email').fill('luca@esempio.it');
-  await luca.getByLabel('Password').fill('prova');
+  await luca.getByLabel('Password', { exact: true }).fill('prova');
   await luca.getByRole('button', { name: 'Entra' }).click();
   await luca.getByRole('button', { name: 'Luca', exact: true }).click();
   await luca.getByPlaceholder('Cerca nome o numero').fill('Murature Campione Sas 24');

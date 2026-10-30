@@ -130,24 +130,28 @@ function Accesso() {
     setAttesa(false);
   }
 
-  return html`<main class="accesso">
-    <img src="icone/icona.svg" alt="" class="logo" width="72" height="72" />
+  return html`<main class="accesso"><div class="accesso-scheda">
+    <img src="icone/icona.svg" alt="" class="logo" width="76" height="76" />
     <h1>Chiamate Aedify</h1>
-    <form onSubmit=${invia} class="modulo">
+    <p class="accesso-sotto">Entra con la tua email e password</p>
+    <form onSubmit=${invia} class="modulo" novalidate>
       <label>Email
-        <input type="email" name="email" autocomplete="username" inputmode="email" value=${email} onInput=${e => setEmail(e.target.value)} />
+        <input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false"
+          placeholder="nome@esempio.it" value=${email} onInput=${e => setEmail(e.target.value)} />
       </label>
       <label>Password
-        <div class="con-pulsante">
-          <input type=${vedi ? 'text' : 'password'} name="password" autocomplete="current-password" value=${password} onInput=${e => setPassword(e.target.value)} />
-          <button type="button" class="pulsante secondario" onClick=${() => setVedi(!vedi)}>${vedi ? 'Nascondi' : 'Mostra'}</button>
+        <div class="campo-password">
+          <input type=${vedi ? 'text' : 'password'} name="password" autocomplete="current-password" aria-label="Password"
+            value=${password} onInput=${e => setPassword(e.target.value)} />
+          <button type="button" class="mostra" onClick=${() => setVedi(!vedi)}>${vedi ? 'Nascondi' : 'Mostra'}</button>
         </div>
       </label>
       <label class="spunta"><input type="checkbox" checked=${resta} onChange=${e => setResta(e.target.checked)} /> Resta collegato</label>
-      ${problema && html`<p class="banner banner-errore">${problema}</p>`}
-      <button class="pulsante primario grande" disabled=${attesa}>${attesa ? 'Un attimo…' : 'Entra'}</button>
+      ${problema && html`<p class="banner banner-errore" role="alert">${problema}</p>`}
+      <button class="pulsante primario grande entra" disabled=${attesa}>${attesa ? 'Un attimo…' : 'Entra'}</button>
     </form>
-  </main>`;
+    <p class="accesso-piede">Password dimenticata? Chiedila a Benedetto.</p>
+  </div></main>`;
 }
 
 export function SceltaNome({ dopo }) {
@@ -156,9 +160,10 @@ export function SceltaNome({ dopo }) {
     if (!nome.trim()) return;
     try { await impostaNome(nome.trim()); dopo?.(); } catch (e) { errore(e); }
   }
-  return html`<main class="accesso">
+  return html`<main class="accesso"><div class="accesso-scheda">
+    <img src="icone/icona.svg" alt="" class="logo" width="64" height="64" />
     <h1>Chi sei?</h1>
-    <p>Serve per far sapere agli altri chi ha chiamato.</p>
+    <p class="accesso-sotto">Serve per far sapere agli altri chi ha chiamato.</p>
     <div class="colonna">
       ${NOMI.map(n => html`<button class="pulsante primario grande" onClick=${() => scegli(n)}>${n}</button>`)}
     </div>
@@ -168,15 +173,16 @@ export function SceltaNome({ dopo }) {
         <button class="pulsante secondario" onClick=${() => scegli(altro)}>OK</button>
       </div>
     </label>
-  </main>`;
+  </div></main>`;
 }
 
 function NonAbilitato() {
-  return html`<main class="accesso">
+  return html`<main class="accesso"><div class="accesso-scheda">
+    <img src="icone/icona.svg" alt="" class="logo" width="64" height="64" />
     <h1>Account non ancora attivo</h1>
-    <p>Sei entrato, ma il tuo account non è ancora abilitato a vedere i contatti. Chiedi a Benedetto di abilitarlo (passo 3 del README), poi riapri l'app.</p>
-    <button class="pulsante secondario grande" onClick=${esci}>Esci</button>
-  </main>`;
+    <p class="accesso-sotto">Sei entrato, ma il tuo account non è ancora abilitato a vedere i contatti. Chiedi a Benedetto di abilitarlo, poi riapri l'app.</p>
+    <button class="pulsante secondario grande largo" onClick=${esci}>Esci</button>
+  </div></main>`;
 }
 
 // ---- Barra in basso ----
@@ -233,7 +239,7 @@ function App() {
   }, []);
 
   let contenuto;
-  if (!s.pronto) contenuto = html`<main class="accesso"><p>Un attimo…</p></main>`;
+  if (!s.pronto) contenuto = html`<main class="accesso"><p class="accesso-sotto">Un attimo…</p></main>`;
   else if (!s.utente) contenuto = html`<${Accesso} />`;
   else if (!s.nome) contenuto = html`<${SceltaNome} />`;
   else if (!s.membro) contenuto = html`<${NonAbilitato} />`;
