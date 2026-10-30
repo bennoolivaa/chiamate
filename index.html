@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Chiamate Aedify</title>
+  <meta name="theme-color" content="#14365c" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icone/icona.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icone/icona-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Chiamate Aedify" />
+  <link rel="preload" href="font/manrope-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="stile.css" />
+</head>
+<body>
+  <div id="app"></div>
+  <noscript>Per usare l'app serve JavaScript attivo nel browser.</noscript>
+  <script src="vendor/supabase.js"></script>
+  <script type="module">
+    import { parti } from './js/app.js';
+    const prova = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('demo');
+    if (prova) {
+      const { creaClientFinto } = await import('./js/finto-supabase.js');
+      window.__finto = creaClientFinto();
+      parti(window.__finto);
+    } else {
+      parti();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
