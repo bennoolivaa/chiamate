@@ -1,9 +1,9 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { ESITI, ESITI_NASCOSTI, NOMI, GIRI, esito as datiEsito } from './config.js';
-import { stato, daChiamare, comuni, storicoDi, registraChiamata, chiamaUnAltro, chiChiama } from './dati.js';
+import { stato, daChiamare, comuni, storicoDi, registraChiamata, chiamaUnAltro, chiChiama, segnaInChiamata } from './dati.js';
 import {
   useDati, vai, avviso, errore, Intestazione, PulsanteChiama, PulsanteSegna, BadgeInChiamata, AvvisoInChiamata,
-  nonSalvato, puoiUscire, daPc,
+  nonSalvato, puoiUscire, daPc, Tasto, staScrivendo,
 } from './app.js';
 import { caricaComuni, comuniPronti, consigliaDemo, tappeDelGiorno, stradaDelGiorno, provinciaDi, nomeProvincia } from './giri.js';
 import {
@@ -61,13 +61,13 @@ const senzaAccenti = t => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 
 export function BadgeEsito({ id }) {
   const e = datiEsito(id);
-  return html`<span class=${'badge esito-' + e.colore}>${e.nome}</span>`;
+  return html`<span class=${'badge esito-' + e.colore}><span class="badge-icona" aria-hidden="true">${e.icona}</span>${e.nome}</span>`;
 }
 
-function Riga({ azienda, dettaglio }) {
+function Riga({ azienda, dettaglio, selezionata }) {
   const apri = () => vai('/azienda/' + azienda.id);
-  return html`<li class="riga">
-    <button class="riga-testo" onClick=${apri}>
+  return html`<li class=${'riga' + (selezionata ? ' selezionata' : '')} data-id=${azienda.id}>
+    <button class="riga-testo" onClick=${apri} aria-current=${selezionata ? 'true' : undefined}>
       <span class="riga-nome">${azienda.nome_azienda}</span>
       <span class="riga-sotto">${azienda.comune || 'Comune?'} · <${BadgeEsito} id=${azienda.esito} /></span>
       ${dettaglio && html`<span class="riga-dettaglio">${dettaglio}</span>`}
@@ -87,9 +87,20 @@ function dettaglioRiga(a) {
 }
 
 // ---- Da chiamare ----
-export function DaChiamare() {
+export function NessunaScelta() {
+  const primo = prossimoDopo(null);
+  return html`<div class="nessuna-scelta">
+    <div class="nessuna-icona" aria-hidden="true">☎️</div>
+    <h2>Scegli un'azienda dalla lista</h2>
+    <p>Oppure parti dalla prima consigliata. Con <kbd class="tasto">↑</kbd> <kbd class="tasto">↓</kbd> passi da un'azienda all'altra.</p>
+    ${primo && html`<button class="pulsante pulsante-chiama grande" onClick=${() => vai('/azienda/' + primo.id)}>Inizia: ${primo.nome_azienda} ›</button>`}
+  </div>`;
+}
+
+export function DaChiamare({ selezionata = null } = {}) {
   const s = useDati();
   useComuni();
+  const listaAttuale = useRef([]);
   const [, ridisegna] = useState(0);
   const [quanti, setQuanti] = useState(60);
   const imposta = (campo, valore) => {
@@ -111,12 +122,33 @@ export function DaChiamare() {
     lista = daChiamare(filtri);
   }
 
-  return html`<main class="schermata">
+  listaAttuale.current = lista;
+
+  // PC: frecce su e giù per passare da un'azienda all'altra
+  useEffect(() => {
+    if (selezionata === null && !daPc) return;
+    const tasti = ev => {
+      if (staScrivendo(ev) || !['ArrowDown', 'ArrowUp'].includes(ev.key)) return;
+      const l = listaAttuale.current;
+      const i = l.findIndex(a => a.id === selezionata);
+      const prossima = l[ev.key === 'ArrowDown' ? i + 1 : Math.max(0, i - 1)];
+      if (prossima && puoiUscire()) { ev.preventDefault(); vai('/azienda/' + prossima.id); }
+    };
+    document.addEventListener('keydown', tasti);
+    return () => document.removeEventListener('keydown', tasti);
+  }, [selezionata]);
+
+  // la riga scelta resta visibile nella lista
+  useEffect(() => {
+    if (selezionata) document.querySelector(`.riga[data-id="${selezionata}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [selezionata]);
+
+  return html`<main class="schermata schermata-lista">
     <${Intestazione} titolo="Da chiamare" />
     <div class="barra-cerca">
       <input type="search" placeholder="🔍 Cerca nome o numero" value=${filtri.cerca} onInput=${e => imposta('cerca', e.target.value)} aria-label="Cerca nome o numero" />
     </div>
-    <button class="pulsante primario grande largo" onClick=${() => vai('/aggiungi')}>＋ Aggiungi un numero</button>
+    <button class="pulsante primario grande largo aggiungi-lista" onClick=${() => vai('/aggiungi')}>＋ Aggiungi un numero</button>
     ${!cerca && html`<div class="filtri">
       <label>Provincia
         <select value=${filtri.provincia} onChange=${e => imposta('provincia', e.target.value)}>
@@ -142,7 +174,7 @@ export function DaChiamare() {
       ${!cerca && !filtri.esito ? html` · <span class="tenue">nascoste: demo, non interessati, fuori target</span>` : ''}</p>
     ${s.caricamento && !s.aziende.length ? html`<p class="vuoto">Carico i contatti…</p>`
       : !lista.length ? html`<div class="vuoto">${cerca ? 'Nessun contatto con questo nome o numero.' : s.aziende.length ? 'Nessuno da chiamare con queste scelte.' : 'Ancora nessun contatto. Tocca "Aggiungi un numero" oppure importa una lista da "Altro".'}</div>`
-      : html`<ul class="lista">${lista.slice(0, quanti).map(a => html`<${Riga} key=${a.id} azienda=${a} dettaglio=${dettaglioRiga(a)} />`)}</ul>`}
+      : html`<ul class="lista">${lista.slice(0, quanti).map(a => html`<${Riga} key=${a.id} azienda=${a} dettaglio=${dettaglioRiga(a)} selezionata=${a.id === selezionata} />`)}</ul>`}
     ${lista.length > quanti && html`<button class="pulsante secondario largo" onClick=${() => setQuanti(quanti + 100)}>Mostra altri</button>`}
   </main>`;
 }
@@ -156,11 +188,14 @@ function linkGoogleIA(a) {
 
 // Quelli saltati con "Salta" non vengono riproposti finché la lista non finisce
 const saltati = new Set();
+// Il prossimo è quello subito sotto nella lista (in fondo si riparte dall'inizio)
 export function prossimoDopo(id) {
   const libera = a => a.id !== id && !chiamaUnAltro(a);
   const lista = daChiamare(filtri);
-  let prossimo = lista.find(a => libera(a) && !saltati.has(a.id));
-  if (!prossimo && saltati.size) { saltati.clear(); prossimo = lista.find(libera); }
+  const i = lista.findIndex(a => a.id === id);
+  const inOrdine = i >= 0 ? [...lista.slice(i + 1), ...lista.slice(0, i)] : lista;
+  let prossimo = inOrdine.find(a => libera(a) && !saltati.has(a.id));
+  if (!prossimo && saltati.size) { saltati.clear(); prossimo = inOrdine.find(libera); }
   return prossimo;
 }
 
@@ -196,6 +231,30 @@ export function Scheda({ id }) {
     return () => document.removeEventListener('visibilitychange', ritorno);
   }, [id]);
 
+  // PC: scorciatoie da tastiera (1-9 esito, Invio salva e prossimo, C sto chiamando, S salta, Esc annulla)
+  const azioni = useRef({});
+  useEffect(() => {
+    if (!daPc) return;
+    const tasti = ev => {
+      if (staScrivendo(ev)) return;
+      const { scegli: sc, salva: sv, salta: sl, scelta: sce, azienda } = azioni.current;
+      if (!azienda) return;
+      if (/^[1-9]$/.test(ev.key)) { ev.preventDefault(); sc(ESITI[Number(ev.key) - 1].id); }
+      else if (ev.key === 'Enter' && sce) { ev.preventDefault(); sv(true); }
+      else if (ev.key === 'Escape' && sce) { ev.preventDefault(); setScelta(''); }
+      else if (ev.key.toLowerCase() === 's' && !sce) { ev.preventDefault(); sl(); }
+      else if (ev.key.toLowerCase() === 'c' && !sce) {
+        ev.preventDefault();
+        const altro = chiamaUnAltro(azienda);
+        if (altro && !confirm(`${altro} la sta chiamando adesso. Vuoi chiamare lo stesso?`)) return;
+        segnaInChiamata(azienda.id, !!altro).catch(errore);
+        setTimeout(vaiAgliEsiti, 300);
+      }
+    };
+    document.addEventListener('keydown', tasti);
+    return () => document.removeEventListener('keydown', tasti);
+  }, []);
+
   useEffect(() => {
     nonSalvato.messaggio = scelta ? 'Non hai ancora salvato com\'è andata la chiamata. Vuoi uscire lo stesso?' : '';
     return () => { nonSalvato.messaggio = ''; };
@@ -211,6 +270,7 @@ export function Scheda({ id }) {
   }
 
   const e = scelta && datiEsito(scelta);
+  azioni.current = { scegli: x => scegli(x), salva: x => salva(x), salta: () => salta(), scelta, azienda: a };
 
   function scegli(idEsito) {
     setScelta(idEsito);
@@ -234,6 +294,7 @@ export function Scheda({ id }) {
     if (salvataggio.current) return;  // doppio tocco: si salva una volta sola
     salvataggio.current = true;
     setSalvo(true);
+    const prossimo = eProssimo ? prossimoDopo(a.id) : null;
     try {
       await registraChiamata(a.id, {
         esito: scelta, nota, referente, email,
@@ -245,7 +306,6 @@ export function Scheda({ id }) {
       visti.current += 1;
       nonSalvato.messaggio = '';
       if (eProssimo) {
-        const prossimo = prossimoDopo(a.id);
         if (prossimo) { avviso(`Salvato ✓ Ora: ${prossimo.nome_azienda}`); vai('/azienda/' + prossimo.id); }
         else { avviso('Salvato ✓ Hai finito la lista!'); vai('/'); }
       } else {
@@ -282,7 +342,9 @@ export function Scheda({ id }) {
       <h2><span class="numero-passo">1</span> Com'è andata?</h2>
       <div class="griglia-esiti">
         ${ESITI.map(x => html`<button class=${`esito-pulsante esito-${x.colore} ${scelta === x.id ? 'scelto' : ''} ${scelta && scelta !== x.id ? 'spento' : ''} ${x.id === 'demo_fissata' ? 'largo' : ''}`}
-          aria-pressed=${scelta === x.id} onClick=${() => scegli(x.id)}>${scelta === x.id ? '✓ ' : ''}${x.nome}</button>`)}
+          aria-pressed=${scelta === x.id} onClick=${() => scegli(x.id)}>
+          <span class="esito-icona" aria-hidden="true">${scelta === x.id ? '✓' : x.icona}</span><span class="esito-nome">${x.nome}</span><${Tasto}>${ESITI.indexOf(x) + 1}<//>
+        </button>`)}
       </div>
     </section>
 
@@ -342,13 +404,13 @@ export function Scheda({ id }) {
       ${scelta
         ? html`<div class="riga-pulsanti">
             <${PulsanteChiama} azienda=${a} poi=${vaiAgliEsiti} />
-            <button class="pulsante primario grande" disabled=${salvo} onClick=${() => salva(true)}>${salvo ? 'Salvo…' : 'Salva e passa al prossimo'}</button>
+            <button class="pulsante primario grande" disabled=${salvo} onClick=${() => salva(true)}>${salvo ? 'Salvo…' : 'Salva e passa al prossimo'}<${Tasto}>Invio<//></button>
           </div>`
         : html`<div class="riga-pulsanti">
             ${daPc
               ? html`<${PulsanteSegna} azienda=${a} poi=${vaiAgliEsiti} /><${PulsanteChiama} azienda=${a} poi=${vaiAgliEsiti} />`
               : html`<${PulsanteChiama} azienda=${a} grande poi=${vaiAgliEsiti} />`}
-            <button class="pulsante secondario grande salta" onClick=${salta}>Salta ›</button>
+            <button class="pulsante secondario grande salta" onClick=${salta}>Salta ›<${Tasto}>S<//></button>
           </div>`}
     </div>
   </main>`;

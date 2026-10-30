@@ -82,22 +82,28 @@ export function Oggi() {
 
   const giorno = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  return html`<main class="schermata">
+  const prossimo = prossimoDopo(null);
+  return html`<main class="schermata schermata-oggi">
     <${Intestazione} titolo=${`Ciao ${s.nome}`} />
     <p class="data-oggi">${giorno[0].toUpperCase() + giorno.slice(1)}</p>
 
-    <div class="colonna azioni-oggi">
-      <button class="pulsante pulsante-chiama grande" onClick=${inizia}>Inizia a chiamare ›</button>
-      <button class="pulsante secondario grande" onClick=${() => vai('/aggiungi')}>＋ Aggiungi un numero</button>
+    <div class="oggi-griglia">
+    <div class="oggi-su">
+      <div class="colonna azioni-oggi">
+        <button class="pulsante pulsante-chiama grande" onClick=${inizia}>Inizia a chiamare ›</button>
+        ${prossimo && html`<p class="prossimo">Prossimo: <b>${prossimo.nome_azienda}</b>${prossimo.comune ? ` · ${prossimo.comune}` : ''}</p>`}
+        <button class="pulsante secondario grande" onClick=${() => vai('/aggiungi')}>＋ Aggiungi un numero</button>
+      </div>
+
+      <div class="riquadro miei-numeri">
+        <div><b>${diOggi.length}</b><span>chiamate oggi</span></div>
+        <div><b>${diOggi.filter(x => x.esito === 'parlato_titolare').length}</b><span>col titolare</span></div>
+        <div><b>${diOggi.filter(x => x.esito === 'demo_fissata').length}</b><span>demo</span></div>
+        <div><b>${daChiamare}</b><span>mai chiamati</span></div>
+      </div>
     </div>
 
-    <div class="riquadro miei-numeri">
-      <div><b>${diOggi.length}</b><span>chiamate oggi</span></div>
-      <div><b>${diOggi.filter(x => x.esito === 'parlato_titolare').length}</b><span>col titolare</span></div>
-      <div><b>${diOggi.filter(x => x.esito === 'demo_fissata').length}</b><span>demo</span></div>
-      <div><b>${daChiamare}</b><span>mai chiamati</span></div>
-    </div>
-
+    <div class="oggi-principale">
     <div class="intestazione-lista">
       <h2>Da fare ${totale ? html`<span class="quante">${totale}</span>` : ''}</h2>
       <div class="scelta-doppia" role="group" aria-label="Di chi">
@@ -140,13 +146,17 @@ export function Oggi() {
       </li>`)}
     <//>
 
+    <button class="pulsante secondario largo mt-grande" onClick=${() => vai('/richiami')}>Tutti i richiami, anche dei prossimi giorni</button>
+    </div>
+
+    <div class="oggi-giu">
     <${Sezione} titolo="📅 Demo oggi e domani" quante=${c.demo.length}>
       ${c.demo.map(a => html`<${Voce} key=${a.id} a=${a}
         dettaglio=${`${stessoGiorno(a.appuntamento_il, new Date()) ? 'Oggi' : 'Domani'} alle ${soloOra(a.appuntamento_il)}${a.appuntamento_luogo ? ` · ${a.appuntamento_luogo}` : ''}`}
         azioni=${html`<a class="pulsante secondario" target="_blank" rel="noopener"
           href=${'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([a.appuntamento_luogo, a.comune].filter(Boolean).join(', '))}>Mappa</a>`} />`)}
     <//>
-
-    <button class="pulsante secondario largo mt-grande" onClick=${() => vai('/richiami')}>Tutti i richiami, anche dei prossimi giorni</button>
+    </div>
+    </div>
   </main>`;
 }

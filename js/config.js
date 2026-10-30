@@ -36,17 +36,17 @@ export const GIRI = {
 
 // Ordine = ordine dei pulsanti dopo la chiamata. "chiede" = cosa serve al passo 3.
 export const ESITI = [
-  { id: 'non_risponde', nome: 'Non risponde', colore: 'grigio' },
-  { id: 'segreteria', nome: 'Segreteria', colore: 'grigio' },
-  { id: 'richiamare', nome: 'Richiamare', colore: 'giallo', chiede: 'richiamo' },
-  { id: 'manda_mail', nome: 'Manda mail', colore: 'azzurro', chiede: 'email' },
-  { id: 'parlato_titolare', nome: 'Parlato col titolare', colore: 'blu' },
-  { id: 'parlato_altri', nome: 'Parlato con altri', colore: 'viola', chiede: 'richiamo-facoltativo' },
-  { id: 'non_interessato', nome: 'Non interessato', colore: 'rosso' },
-  { id: 'fuori_target', nome: 'Fuori target', colore: 'marrone' },
-  { id: 'demo_fissata', nome: 'Demo fissata', colore: 'verde', chiede: 'appuntamento' },
+  { id: 'non_risponde', nome: 'Non risponde', colore: 'grigio', icona: '📵' },
+  { id: 'segreteria', nome: 'Segreteria', colore: 'grigio', icona: '📼' },
+  { id: 'richiamare', nome: 'Richiamare', colore: 'giallo', icona: '🔁', chiede: 'richiamo' },
+  { id: 'manda_mail', nome: 'Manda mail', colore: 'azzurro', icona: '✉️', chiede: 'email' },
+  { id: 'parlato_titolare', nome: 'Parlato col titolare', colore: 'blu', icona: '👔' },
+  { id: 'parlato_altri', nome: 'Parlato con altri', colore: 'viola', icona: '👥', chiede: 'richiamo-facoltativo' },
+  { id: 'non_interessato', nome: 'Non interessato', colore: 'rosso', icona: '🚫' },
+  { id: 'fuori_target', nome: 'Fuori target', colore: 'marrone', icona: '⛔' },
+  { id: 'demo_fissata', nome: 'Demo fissata', colore: 'verde', icona: '📅', chiede: 'appuntamento' },
 ];
-export const ESITO_NUOVO = { id: 'nuovo', nome: 'Nuovo', colore: 'bianco' };
+export const ESITO_NUOVO = { id: 'nuovo', nome: 'Nuovo', colore: 'bianco', icona: '🆕' };
 export const ESITI_NASCOSTI = ['non_interessato', 'fuori_target', 'demo_fissata'];
 
 export function esito(id) {

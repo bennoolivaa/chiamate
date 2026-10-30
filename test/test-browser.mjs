@@ -253,7 +253,8 @@ await prova('Appuntamenti: raggruppati per giorno e comune, con strada stimata',
   await aspetta(300);
   await foto('09-appuntamenti');
   const t = await testo();
-  verifica(t.includes('Atripalda (1)') && t.includes('Avellino (3)') && t.includes('di strada'), t.slice(0, 500));
+  const tl = t.toLowerCase();
+  verifica(tl.includes('atripalda (1)') && tl.includes('avellino (3)') && tl.includes('di strada'), t.slice(0, 500));
 });
 
 await prova('Tempo reale: Luca inizia a chiamare e il badge compare senza ricaricare', async () => {
@@ -522,6 +523,34 @@ await prova('Dal PC: "Sto chiamando" segnala agli altri senza far partire la chi
   const chi = await p.evaluate(async id => (await window.__finto.from('aziende').select('*').eq('id', id)).data[0].in_chiamata_da, id);
   verifica(chi === 'Benedetto', 'gli altri non lo vedono: ' + chi);
   await p.screenshot({ path: path.join(cartellaFoto, '18-pc-sto-chiamando.png') });
+
+  // lista e scheda affiancate
+  verifica(await p.locator('.colonna-lista .riga.selezionata').count() === 1, 'lista non affiancata o riga non evidenziata');
+  // tastiera: 1 = Non risponde, Invio = salva e passa al prossimo
+  const nome1 = await p.locator('.scheda-nome').innerText();
+  await p.keyboard.press('1');
+  verifica(await p.getByRole('button', { name: 'Non risponde', exact: true }).getAttribute('aria-pressed') === 'true', 'il tasto 1 non sceglie "Non risponde"');
+  await p.keyboard.press('Enter');
+  await p.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, nome1, { timeout: 3000 })
+    .catch(() => { throw new Error('Invio non ha salvato e passato al prossimo'); });
+  // frecce: giù cambia azienda
+  const nome2 = await p.locator('.scheda-nome').innerText();
+  await p.keyboard.press('ArrowDown');
+  await p.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, nome2, { timeout: 3000 })
+    .catch(() => { throw new Error('la freccia giù non cambia azienda'); });
+  // S = salta
+  const nome3 = await p.locator('.scheda-nome').innerText();
+  await p.keyboard.press('s');
+  await p.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, nome3, { timeout: 3000 })
+    .catch(async () => { throw new Error('S non salta: ' + JSON.stringify({ nome3, ora: await p.locator('.scheda-nome').innerText(), hash: await p.evaluate(() => location.hash), avvisi: await p.locator('.avviso').allInnerTexts(), focus: await p.evaluate(() => document.activeElement?.outerHTML.slice(0, 80)) })); });
+  // scrivendo nella ricerca le scorciatoie non scattano
+  await p.getByPlaceholder('Cerca nome o numero').fill('1');
+  verifica(!(await p.locator('.esito-pulsante.scelto').count()), 'scrivere "1" nella ricerca ha scelto un esito');
+  await p.getByPlaceholder('Cerca nome o numero').fill('');
+  await p.screenshot({ path: path.join(cartellaFoto, '20-pc-lista-e-scheda.png') });
+  await p.getByRole('link', { name: /Oggi/ }).click();
+  await p.getByRole('heading', { name: 'Ciao Benedetto' }).waitFor();
+  await p.screenshot({ path: path.join(cartellaFoto, '21-pc-oggi.png') });
   // sul telefono invece il tasto non c'è
   verifica(!(await page.getByRole('button', { name: 'Sto chiamando' }).count()), 'sul telefono compare "Sto chiamando"');
   await pc.close();

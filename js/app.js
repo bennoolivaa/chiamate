@@ -4,7 +4,7 @@ import {
   stato, ascolta, avvia, accedi, esci, impostaNome, segnaInChiamata, chiamaUnAltro, chiChiama, chiamataSenzaEsito, liberaChiamata,
 } from './dati.js';
 import { messaggioErrore, minutiFa, dataOra, telefonoLeggibile } from './utili.js';
-import { DaChiamare, Scheda, Richiami, Appuntamenti, Numeri } from './schermate.js';
+import { DaChiamare, Scheda, Richiami, Appuntamenti, Numeri, NessunaScelta } from './schermate.js';
 import { Altro, Aggiungi, Modifica, Importa } from './altro.js';
 import { Oggi, quanteCoseDaFare } from './oggi.js';
 
@@ -22,6 +22,28 @@ export function puoiUscire() {
 addEventListener('beforeunload', e => { if (nonSalvato.messaggio) e.preventDefault(); });
 export function indietro() { history.length > 1 ? history.back() : vai('/'); }
 function percorsoAttuale() { return location.hash.replace(/^#/, '') || '/'; }
+
+// Schermo largo (PC): menu a sinistra e lista affiancata alla scheda
+const schermoLargo = matchMedia('(min-width: 1000px)');
+export function useLargo() {
+  const [largo, setLargo] = useState(schermoLargo.matches);
+  useEffect(() => {
+    const cambia = () => setLargo(schermoLargo.matches);
+    schermoLargo.addEventListener('change', cambia);
+    return () => schermoLargo.removeEventListener('change', cambia);
+  }, []);
+  return largo;
+}
+
+// Durante la scrittura in un campo le scorciatoie da tastiera non devono scattare
+export function staScrivendo(ev) {
+  const t = ev.target;
+  return ev.ctrlKey || ev.metaKey || ev.altKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable;
+}
+
+export function Tasto({ children }) {
+  return daPc ? html`<kbd class="tasto" aria-hidden="true">${children}</kbd>` : null;
+}
 
 export function useDati() {
   const [, aggiorna] = useState(0);
@@ -89,7 +111,7 @@ export function PulsanteSegna({ azienda, poi }) {
       .catch(errore);
     poi?.();
   }
-  return html`<button class="pulsante pulsante-chiama grande" onClick=${clic}>${icone.telefono}<span>${altro ? 'Chiamo lo stesso' : 'Sto chiamando'}</span></button>`;
+  return html`<button class="pulsante pulsante-chiama grande" onClick=${clic}>${icone.telefono}<span>${altro ? 'Chiamo lo stesso' : 'Sto chiamando'}</span><${Tasto}>C<//></button>`;
 }
 
 export function BadgeInChiamata({ azienda }) {
@@ -125,7 +147,7 @@ export function Intestazione({ titolo, conIndietro, destra }) {
   return html`<header class="intestazione">
     ${conIndietro ? html`<button class="indietro" onClick=${() => puoiUscire() && indietro()}>‹ Indietro</button>
       <button class="pulsante-home" onClick=${() => puoiUscire() && vai('/')} aria-label="Torna alla schermata Oggi">${icone.casa}<span>Home</span></button>` : html`<h1>${titolo}</h1>`}
-    ${destra !== undefined ? destra : html`<button class="pulsante-altro" onClick=${() => puoiUscire() && vai('/altro')}>Altro</button>`}
+    ${destra !== undefined ? destra : html`<button class="pulsante-altro apri-altro" onClick=${() => puoiUscire() && vai('/altro')}>Altro</button>`}
   </header>
   ${conIndietro && titolo ? html`<h1 class="titolo-pagina">${titolo}</h1>` : ''}`;
 }
@@ -218,17 +240,33 @@ function Navigazione({ percorso }) {
     if (p === '/chiamare') return ['/chiamare', '/aggiungi'].includes(percorso) || percorso.startsWith('/azienda') || percorso.startsWith('/modifica');
     return percorso.startsWith(p);
   };
+  const esciSePuoi = e => { if (!puoiUscire()) e.preventDefault(); };
   return html`<nav class="navigazione">
+    <div class="marchio solo-pc"><img src="icone/icona.svg" alt="" width="36" height="36" /><span>Chiamate<br /><b>Aedify</b></span></div>
     ${voci.map(([p, nome, icona, numero]) => html`
-      <a href=${'#' + p} class=${attiva(p) ? 'attiva' : ''} aria-current=${attiva(p) ? 'page' : undefined}
-        onClick=${e => { if (!puoiUscire()) e.preventDefault(); }}>
-        ${icona}${numero ? html`<span class="contatore">${numero}</span>` : ''}<span>${nome}</span>
+      <a href=${'#' + p} class=${'voce-menu' + (attiva(p) ? ' attiva' : '')} aria-current=${attiva(p) ? 'page' : undefined} onClick=${esciSePuoi}>
+        <span class="icona-menu">${icona}${numero ? html`<span class="contatore">${numero}</span>` : ''}</span><span>${nome}</span>
       </a>`)}
+    <div class="menu-piede solo-pc">
+      <a href="#/aggiungi" class="voce-menu aggiungi-menu" onClick=${esciSePuoi}><span class="icona-menu">＋</span><span>Aggiungi numero</span></a>
+      <a href="#/altro" class=${'voce-menu' + (percorso.startsWith('/altro') || percorso.startsWith('/importa') ? ' attiva' : '')} onClick=${esciSePuoi}><span class="icona-menu">⋯</span><span>Altro</span></a>
+      <p class="chi-sono">Sei <b>${s.nome}</b></p>
+    </div>
   </nav>`;
 }
 
 function Schermata({ percorso }) {
   const [, nome, id] = percorso.split('/');
+  const largo = useLargo();
+  // PC: lista a sinistra, scheda a destra (la lista resta montata e non perde il punto)
+  if (largo && (nome === 'chiamare' || nome === 'azienda')) {
+    return html`<div class="due-colonne">
+      <div class="colonna-lista"><${DaChiamare} selezionata=${nome === 'azienda' ? Number(id) : null} /></div>
+      <div class="pannello" key=${id || 'vuoto'}>
+        ${nome === 'azienda' ? html`<${Scheda} key=${id} id=${Number(id)} />` : html`<${NessunaScelta} />`}
+      </div>
+    </div>`;
+  }
   switch (nome) {
     case 'chiamare': return html`<${DaChiamare} />`;
     case 'richiami': return html`<${Richiami} />`;
