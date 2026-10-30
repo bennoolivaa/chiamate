@@ -114,9 +114,12 @@ await prova('Usabilità: registrare una chiamata "Non risponde" (tocchi e tempo)
   let fermo = 0; // il tempo degli screenshot non conta
   const fotoFuoriTempo = async nome => { const t = Date.now(); await foto(nome); fermo += Date.now() - t; };
   const t0 = Date.now();
+  const tappe = [];
+  const tappa = nome => tappe.push(`${nome} ${((Date.now() - t0 - fermo) / 1000).toFixed(1)}s`);
   const primo = await page.locator('.riga-nome').first().innerText();
   await aspetta(pausa); await page.locator('.riga-testo').first().click(); tocchi++;
   await page.locator('.scheda-nome').waitFor();
+  tappa('scheda aperta');
   await fotoFuoriTempo('04-scheda');
   await aspetta(pausa); await page.locator('.barra-fissa a[href^="tel:"]').click(); tocchi++;
   verifica((await page.evaluate(() => window.__chiamate.length)) === 1, 'il tasto Chiama non ha aperto il telefono');
@@ -124,12 +127,16 @@ await prova('Usabilità: registrare una chiamata "Non risponde" (tocchi e tempo)
   await page.evaluate(() => { window.scrollTo(0, 0); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForFunction(() => { const r = document.querySelector('.griglia-esiti').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight - 200; }, null, { timeout: 3000 })
     .catch(() => { throw new Error('tornando dalla chiamata gli esiti non sono in vista'); });
+  tappa('ritorno dalla chiamata');
   await aspetta(pausa); await tocca('Non risponde'); tocchi++;
+  tappa('esito scelto');
   await fotoFuoriTempo('05-scheda-esito-scelto');
   await aspetta(pausa); await tocca('Salva e passa al prossimo'); tocchi++;
   await page.getByText('Salvato ✓ Ora:').first().waitFor();
+  tappa('salvato');
   await page.waitForFunction(n => document.querySelector('.scheda-nome')?.innerText !== n, primo);
   secondi = (Date.now() - t0 - fermo) / 1000;
+  console.log('      ' + tappe.join(' | '));
   verifica(secondi < 15, `ci ha messo ${secondi}s`);
 });
 
@@ -272,6 +279,56 @@ await prova('Due finestre: premo Chiama, io vedo "Stai chiamando tu", Luca vede 
   await luca.close();
 });
 
+await prova('Sincronizzazione: un aggiornamento arrivato in ritardo non sovrascrive dati più nuovi', async () => {
+  await page.getByRole('link', { name: /Da chiamare/ }).click();
+  await page.getByPlaceholder('Cerca nome o numero').fill('Edilizia Modello Snc 22');
+  await page.locator('.riga').first().waitFor();
+  const prima = await page.locator('.riga').first().innerText();
+  await page.evaluate(async () => {
+    const { data } = await window.__finto.from('aziende').select('*').eq('id', 22);
+    const vecchia = { ...data[0], esito: 'non_interessato', aggiornato_il: new Date(new Date(data[0].aggiornato_il) - 3600000).toISOString() };
+    new BroadcastChannel('chiamate-demo').postMessage({ table: 'aziende', eventType: 'UPDATE', riga: vecchia });
+  });
+  await aspetta(600);
+  const dopo = await page.locator('.riga').first().innerText();
+  verifica(prima === dopo && !dopo.includes('Non interessato'), JSON.stringify({ prima, dopo }));
+});
+
+await prova('Sincronizzazione: "Modifica" non cancella l\'esito salvato da Luca nel frattempo', async () => {
+  await page.locator('.riga-testo').first().click();
+  await page.locator('.pulsante-altro', { hasText: 'Modifica' }).click();
+  await page.getByLabel('Note').waitFor();
+  await finto(() => window.__finto.rpc('registra_chiamata', { p_azienda_id: 22, p_esito: 'richiamare', p_nome: 'Luca', p_richiamo_il: new Date(Date.now() + 86400000).toISOString() }));
+  await page.getByText('ha appena aggiornato questo contatto').waitFor({ timeout: 3000 });
+  await page.getByLabel('Note').fill('Chiedere del geometra');
+  await tocca('Salva');
+  await page.getByText('Salvato ✓').first().waitFor();
+  const a = await finto(async () => (await window.__finto.from('aziende').select('*').eq('id', 22)).data[0]);
+  verifica(a.esito === 'richiamare' && a.richiamo_il && a.note === 'Chiedere del geometra', JSON.stringify({ esito: a.esito, note: a.note, richiamo: a.richiamo_il }));
+});
+
+await prova('Atomicità: doppio tocco su "Salva" registra la chiamata una volta sola', async () => {
+  const conta = () => finto(async () => (await window.__finto.from('storico_chiamate').select('*').eq('azienda_id', 22)).data.length);
+  const prima = await conta();
+  await page.locator('.scheda-nome').waitFor();
+  await tocca('Segreteria');
+  await page.getByRole('button', { name: 'Salva e resta qui' }).dblclick();
+  await page.getByText('Salvato ✓').first().waitFor();
+  await aspetta(500);
+  const dopo = await conta();
+  verifica(dopo === prima + 1, `righe aggiunte: ${dopo - prima}`);
+});
+
+await prova('Vince il primo: se Luca ha già preso la chiamata, Benedetto viene avvisato', async () => {
+  // Luca prende la chiamata "di nascosto" (il telefono di Benedetto non lo sa ancora)
+  const chi = await finto(async () => {
+    const r = await window.__finto.rpc('segna_in_chiamata', { p_azienda_id: 23, p_nome: 'Luca' });
+    const r2 = await window.__finto.rpc('segna_in_chiamata', { p_azienda_id: 23, p_nome: 'Benedetto' });
+    return [r.data, r2.data];
+  });
+  verifica(chi[0] === 'Luca' && chi[1] === 'Luca', JSON.stringify(chi));
+});
+
 await prova('Aggiungi: numero già presente -> chi l\'ha chiamata, niente doppione', async () => {
   await page.getByRole('link', { name: /Da chiamare/ }).click();
   await page.getByPlaceholder('Cerca nome o numero').fill('');
@@ -357,7 +414,12 @@ await prova('Numeri: contatori per persona', async () => {
   await page.locator('table.numeri').first().waitFor();
   await foto('15-numeri');
   const riga = await page.locator('table.numeri').first().locator('tr', { hasText: 'Luca' }).innerText();
-  verifica(/Luca\s+3\s+1\s+0/.test(riga), riga);
+  const atteso = await finto(async () => {
+    const inizio = new Date(); inizio.setHours(0, 0, 0, 0);
+    const sue = (await window.__finto.from('storico_chiamate').select('*')).data.filter(c => c.utente_nome === 'Luca' && new Date(c.chiamata_il) >= inizio);
+    return [sue.length, sue.filter(c => c.esito === 'parlato_titolare').length, sue.filter(c => c.esito === 'demo_fissata').length];
+  });
+  verifica(riga.split(/\s+/).slice(1).join(' ') === atteso.join(' '), `${riga} invece di ${atteso}`);
 });
 
 await prova('Manca internet: messaggio chiaro', async () => {

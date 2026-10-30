@@ -101,7 +101,10 @@ export function Aggiungi() {
   const problema = !telefono ? '' : !normalizzato ? 'Il numero sembra incompleto.' : '';
   const pronto = normalizzato && !esistente && nome.trim();
 
+  const salvataggio = useRef(false);
   async function salva(chiamo) {
+    if (salvataggio.current) return;
+    salvataggio.current = true;
     setSalvo(true);
     try {
       const nuova = await aggiungiAzienda({ nome_azienda: nome, telefono: normalizzato, comune: comuneUniforme(comune), email, note }, { chiamo });
@@ -110,6 +113,7 @@ export function Aggiungi() {
       vai('/azienda/' + nuova.id);
     } catch (e) {
       errore(e);
+      salvataggio.current = false;
       setSalvo(false);
     }
   }
@@ -173,6 +177,7 @@ export function Modifica({ id }) {
   const s = useDati();
   const a = s.aziende.find(x => x.id === id);
   const [d, setD] = useState(a ? { ...a } : null);
+  const originale = useRef(a ? { ...a } : null);
   const [salvo, setSalvo] = useState(false);
   if (!a || !d) return html`<main class="schermata"><${Intestazione} conIndietro destra=${null} /><div class="vuoto">Questo contatto non c'è più.</div></main>`;
 
@@ -183,13 +188,15 @@ export function Modifica({ id }) {
   async function salva() {
     if (!d.nome_azienda?.trim()) { avviso('Manca il nome dell\'azienda.', 'errore'); return; }
     if (!normalizzaTelefono(d.telefono)) { avviso('Il numero di telefono non sembra giusto.', 'errore'); return; }
+    // Mandiamo solo i campi cambiati qui: così non cancelliamo quello che un altro ha salvato nel frattempo
+    const campi = ['nome_azienda', 'telefono', 'comune', 'email', 'referente', 'esito', 'note', 'richiamo_il', 'appuntamento_il', 'appuntamento_luogo'];
+    const cambiati = {};
+    for (const c of campi) if ((d[c] || null) !== (originale.current[c] || null)) cambiati[c] = d[c] || null;
+    if (cambiati.comune) cambiati.comune = comuneUniforme(cambiati.comune);
+    if (!Object.keys(cambiati).length) { indietro(); return; }
     setSalvo(true);
     try {
-      await aggiornaAzienda(a.id, {
-        nome_azienda: d.nome_azienda, telefono: d.telefono, comune: comuneUniforme(d.comune || ''), email: d.email,
-        referente: d.referente, esito: d.esito, note: d.note,
-        richiamo_il: d.richiamo_il || null, appuntamento_il: d.appuntamento_il || null, appuntamento_luogo: d.appuntamento_luogo,
-      });
+      await aggiornaAzienda(a.id, cambiati);
       avviso('Salvato ✓');
       indietro();
     } catch (e) { errore(e); }
@@ -203,6 +210,7 @@ export function Modifica({ id }) {
 
   return html`<main class="schermata">
     <${Intestazione} conIndietro titolo="Modifica" destra=${null} />
+    ${a.aggiornato_il !== originale.current.aggiornato_il && html`<div class="banner banner-info">${a.ultimo_chiamante && a.ultima_chiamata_il !== originale.current.ultima_chiamata_il ? `${a.ultimo_chiamante} ha appena aggiornato` : 'Qualcuno ha appena aggiornato'} questo contatto. Salvando cambi solo i campi che hai modificato tu.</div>`}
     <label>Nome azienda <input value=${d.nome_azienda || ''} onInput=${imposta('nome_azienda')} /></label>
     <label>Telefono <input type="tel" value=${d.telefono || ''} onInput=${imposta('telefono')} /></label>
     ${altroConStessoNumero && html`<${GiaPresente} azienda=${altroConStessoNumero} />`}

@@ -39,7 +39,7 @@ export async function avvia(clientDiProva) {
     const utente = sessione?.user || null;
     const cambiato = utente?.id !== stato.utente?.id;
     cambia({ pronto: true, utente, nome: utente?.user_metadata?.nome || '' });
-    if (utente && cambiato) setTimeout(caricaTutto, 0);
+    if (utente && cambiato) setTimeout(() => { apriCanale(); caricaTutto(); }, 0);
     if (!utente) { chiudiCanale(); cambia({ aziende: [], storico: [] }); }
   });
   window.addEventListener('online', () => { cambia({ online: true }); if (stato.utente) caricaTutto(); });
@@ -78,26 +78,51 @@ async function leggiTutte(tabella, ordine) {
   }
 }
 
+// Caricamento completo. Se ne viene chiesto un altro mentre uno è in corso, lo rifacciamo dopo:
+// così non perdiamo modifiche avvenute durante il primo.
 let caricamentoInCorso = null;
+let ricaricaDopo = false;
 export function caricaTutto() {
-  if (caricamentoInCorso) return caricamentoInCorso;
+  if (caricamentoInCorso) { ricaricaDopo = true; return caricamentoInCorso; }
   cambia({ caricamento: true });
   caricamentoInCorso = (async () => {
     try {
       const { data: membro } = await db.rpc('e_membro');
       const [aziende, storico] = await Promise.all([leggiTutte('aziende', 'id'), leggiTutte('storico_chiamate', 'id')]);
-      cambia({ aziende, storico, membro: membro !== false });
-      apriCanale();
+      unisci(aziende, storico);
+      cambia({ membro: membro !== false });
     } catch (e) {
       console.warn(e);
     } finally {
       caricamentoInCorso = null;
       cambia({ caricamento: false });
+      if (ricaricaDopo) { ricaricaDopo = false; caricaTutto(); }
     }
   })();
   return caricamentoInCorso;
 }
 
+// Unisce i dati appena letti con quelli già in memoria: vince sempre la versione più recente
+const eliminate = new Set();
+function unisci(aziende, storico) {
+  const attuali = new Map(stato.aziende.map(a => [a.id, a]));
+  const nuove = aziende.filter(a => !eliminate.has(a.id)).map(a => {
+    const mia = attuali.get(a.id);
+    return mia && piuRecente(mia, a) ? mia : a;
+  });
+  const lette = new Set(nuove.map(a => a.id));
+  // aggiunte arrivate in tempo reale mentre leggevamo
+  for (const a of stato.aziende) if (!lette.has(a.id) && new Date(a.creato_il) > Date.now() - 60000) nuove.push(a);
+  const idStorico = new Set(storico.map(c => c.id));
+  cambia({ aziende: nuove, storico: [...storico, ...stato.storico.filter(c => !idStorico.has(c.id))] });
+}
+
+function piuRecente(a, b) {
+  return new Date(a.aggiornato_il) > new Date(b.aggiornato_il);
+}
+
+// Ci colleghiamo agli aggiornamenti in tempo reale; a ogni (ri)collegamento ricarichiamo tutto,
+// così quello che è successo mentre eravamo scollegati non va perso.
 function apriCanale() {
   if (canale) return;
   canale = db.channel('modifiche')
@@ -105,12 +130,12 @@ function apriCanale() {
       if (eventType === 'DELETE') togliAzienda(old.id);
       else mettiAzienda(nuova);
     })
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'storico_chiamate' }, ({ new: riga }) => {
-      if (stato.storico.some(s => s.id === riga.id)) return;
-      const senzaProvvisoria = stato.storico.filter(s => !(String(s.id).startsWith('temp-') && s.azienda_id === riga.azienda_id));
-      cambia({ storico: [...senzaProvvisoria, riga] });
-    })
-    .subscribe();
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'storico_chiamate' }, ({ new: riga }) => mettiChiamata(riga))
+    .subscribe(condizione => { if (condizione === 'SUBSCRIBED') caricaTutto(); });
+}
+
+function mettiChiamata(riga) {
+  if (!stato.storico.some(c => c.id === riga.id)) cambia({ storico: [...stato.storico, riga] });
 }
 
 function chiudiCanale() {
@@ -118,22 +143,28 @@ function chiudiCanale() {
   canale = null;
 }
 
+// Un aggiornamento arrivato in ritardo non deve sovrascrivere dati più nuovi
 function mettiAzienda(a) {
-  const altre = stato.aziende.filter(x => x.id !== a.id);
-  cambia({ aziende: [...altre, a] });
+  const attuale = stato.aziende.find(x => x.id === a.id);
+  if (attuale && piuRecente(attuale, a)) return;
+  cambia({ aziende: [...stato.aziende.filter(x => x.id !== a.id), a] });
 }
 
 function togliAzienda(id) {
+  eliminate.add(id);
   cambia({ aziende: stato.aziende.filter(x => x.id !== id), storico: stato.storico.filter(s => s.azienda_id !== id) });
 }
 
 // ---- Azioni ----
 
-export async function segnaInChiamata(id) {
+// Ritorna chi la sta chiamando davvero: se non sono io, qualcuno è arrivato prima
+export async function segnaInChiamata(id, forza = false) {
   const a = stato.aziende.find(x => x.id === id);
-  if (a) mettiAzienda({ ...a, in_chiamata_da: stato.nome, in_chiamata_dal: new Date().toISOString() });
-  const { error } = await db.rpc('segna_in_chiamata', { p_azienda_id: id, p_nome: stato.nome });
+  if (a) cambia({ aziende: stato.aziende.map(x => x.id === id ? { ...x, in_chiamata_da: stato.nome, in_chiamata_dal: new Date().toISOString() } : x) });
+  const { data: chi, error } = await db.rpc('segna_in_chiamata', { p_azienda_id: id, p_nome: stato.nome, p_forza: forza });
   if (error) throw error;
+  if (chi !== stato.nome && a) cambia({ aziende: stato.aziende.map(x => x.id === id ? { ...x, in_chiamata_da: chi } : x) });
+  return chi;
 }
 
 export async function registraChiamata(id, { esito, nota, referente, email, richiamo_il, appuntamento_il, appuntamento_luogo }) {
@@ -144,19 +175,17 @@ export async function registraChiamata(id, { esito, nota, referente, email, rich
     p_appuntamento_luogo: appuntamento_luogo || null,
   });
   if (error) throw error;
-  mettiAzienda(data);
-  // la riga di storico arriva in tempo reale; intanto la mostriamo subito
-  cambia({ storico: [...stato.storico, { id: `temp-${Date.now()}`, azienda_id: id, utente_nome: stato.nome, chiamata_il: new Date().toISOString(), esito, nota: nota || null }] });
-  setTimeout(() => cambia({ storico: stato.storico.filter(s => !String(s.id).startsWith('temp-')) }), 4000);
-  return data;
+  mettiAzienda(data.azienda);
+  mettiChiamata(data.chiamata);
+  return data.azienda;
 }
 
 export async function aggiungiAzienda(campi, { chiamo = false } = {}) {
-  const riga = { ...pulisci(campi), creato_da: stato.nome };
+  // con "Aggiungi e chiama" il contatto nasce già segnato "in chiamata": una sola scrittura
+  const riga = { ...pulisci(campi), creato_da: stato.nome, ...(chiamo ? { in_chiamata_da: stato.nome } : {}) };
   const { data, error } = await db.from('aziende').insert(riga).select().single();
   if (error) throw error;
   mettiAzienda(data);
-  if (chiamo) await segnaInChiamata(data.id);
   return data;
 }
 

@@ -63,7 +63,9 @@ export function PulsanteChiama({ azienda, grande, poi, testo = 'Chiama' }) {
   const altro = chiamaUnAltro(azienda);
   function clic(ev) {
     if (altro && !confirm(`${altro} la sta chiamando adesso. Vuoi chiamare lo stesso?`)) { ev.preventDefault(); return; }
-    segnaInChiamata(azienda.id).catch(() => {});
+    segnaInChiamata(azienda.id, !!altro)
+      .then(chi => { if (chi && chi !== stato.nome) avviso(`${chi} la stava già chiamando`, 'errore'); })
+      .catch(() => {});
     if (poi) setTimeout(poi, 300);
   }
   return html`<a class=${grande ? 'pulsante pulsante-chiama grande' : 'tondo-chiama'} href=${'tel:' + azienda.telefono}

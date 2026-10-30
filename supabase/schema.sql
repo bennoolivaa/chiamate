@@ -50,7 +50,9 @@ create table if not exists public.storico_chiamate (
   utente_id uuid default auth.uid(),
   utente_nome text not null,
   chiamata_il timestamptz not null default now(),
-  esito text not null,
+  esito text not null check (esito in (
+    'nuovo', 'non_risponde', 'segreteria', 'parlato_titolare', 'parlato_altri',
+    'richiamare', 'manda_mail', 'demo_fissata', 'non_interessato', 'fuori_target')),
   nota text
 );
 
@@ -76,6 +78,12 @@ begin
     raise exception 'Numero di telefono non valido: %', new.telefono;
   end if;
   new.aggiornato_il := now();
+  -- l'ora del "sto chiamando" la decide sempre il server, non il telefono
+  if new.in_chiamata_da is null then
+    new.in_chiamata_dal := null;
+  elsif tg_op = 'INSERT' or new.in_chiamata_da is distinct from old.in_chiamata_da then
+    new.in_chiamata_dal := now();
+  end if;
   return new;
 end $$;
 
@@ -90,6 +98,8 @@ returns boolean language sql stable security definer set search_path = '' as $$
 $$;
 
 -- 5. Registrare una chiamata: una riga nello storico + aggiornamento dell'azienda, insieme
+-- (è una sola transazione: o riescono entrambe o nessuna). Restituisce { azienda, chiamata }.
+drop function if exists public.registra_chiamata(bigint, text, text, text, text, text, timestamptz, timestamptz, text);
 create or replace function public.registra_chiamata(
   p_azienda_id bigint,
   p_esito text,
@@ -100,11 +110,14 @@ create or replace function public.registra_chiamata(
   p_richiamo_il timestamptz default null,
   p_appuntamento_il timestamptz default null,
   p_appuntamento_luogo text default null
-) returns public.aziende language plpgsql set search_path = '' as $$
-declare risultato public.aziende;
+) returns jsonb language plpgsql set search_path = '' as $$
+declare
+  risultato public.aziende;
+  chiamata public.storico_chiamate;
 begin
   insert into public.storico_chiamate (azienda_id, utente_nome, esito, nota)
-  values (p_azienda_id, p_nome, p_esito, nullif(trim(p_nota), ''));
+  values (p_azienda_id, p_nome, p_esito, nullif(trim(p_nota), ''))
+  returning * into chiamata;
 
   update public.aziende set
     esito = p_esito,
@@ -124,14 +137,23 @@ begin
   if risultato.id is null then
     raise exception 'Azienda non trovata';
   end if;
-  return risultato;
+  return jsonb_build_object('azienda', to_jsonb(risultato), 'chiamata', to_jsonb(chiamata));
 end $$;
 
--- "Sto chiamando": l'ora la mette il server, così vale per tutti
-create or replace function public.segna_in_chiamata(p_azienda_id bigint, p_nome text)
-returns void language sql set search_path = '' as $$
-  update public.aziende set in_chiamata_da = p_nome, in_chiamata_dal = now() where id = p_azienda_id;
-$$;
+-- "Sto chiamando": vince chi arriva prima. Se un altro la sta già chiamando (da meno di 10 minuti)
+-- non si sovrascrive, a meno di p_forza ("Chiama lo stesso"). Restituisce chi la sta chiamando.
+drop function if exists public.segna_in_chiamata(bigint, text);
+create or replace function public.segna_in_chiamata(p_azienda_id bigint, p_nome text, p_forza boolean default false)
+returns text language plpgsql set search_path = '' as $$
+declare chi text;
+begin
+  update public.aziende set in_chiamata_da = p_nome, in_chiamata_dal = now()
+  where id = p_azienda_id
+    and (p_forza or in_chiamata_da is null or in_chiamata_da = p_nome
+         or in_chiamata_dal < now() - interval '10 minutes');
+  select in_chiamata_da into chi from public.aziende where id = p_azienda_id;
+  return chi;
+end $$;
 
 -- 6. Permessi: solo utenti collegati, mai "anon"
 revoke all on table public.aziende, public.storico_chiamate, public.membri from anon, authenticated;
@@ -144,11 +166,11 @@ revoke all on function public.normalizza_telefono(text) from public, anon;
 revoke all on function public.prepara_azienda() from public, anon, authenticated;
 revoke all on function public.e_membro() from public, anon;
 revoke all on function public.registra_chiamata(bigint, text, text, text, text, text, timestamptz, timestamptz, text) from public, anon;
-revoke all on function public.segna_in_chiamata(bigint, text) from public, anon;
+revoke all on function public.segna_in_chiamata(bigint, text, boolean) from public, anon;
 grant execute on function public.normalizza_telefono(text) to authenticated;
 grant execute on function public.e_membro() to authenticated;
 grant execute on function public.registra_chiamata(bigint, text, text, text, text, text, timestamptz, timestamptz, text) to authenticated;
-grant execute on function public.segna_in_chiamata(bigint, text) to authenticated;
+grant execute on function public.segna_in_chiamata(bigint, text, boolean) to authenticated;
 
 -- 7. Regole di accesso (RLS)
 alter table public.aziende enable row level security;

@@ -18,7 +18,7 @@ insert into auth.users values ('11111111-1111-1111-1111-111111111111','benedetto
 await db.exec(schema);
 await db.exec(schema); // rieseguibile
 await db.exec(`insert into auth.users values ('33333333-3333-3333-3333-333333333333','estraneo@x')`); // creato dopo: non membro
-let ok = 0, ko = 0;
+let ok = 0, ko = 0, r2;
 async function as(role, uid, sql, params) {
   await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${uid || ''}', false); set role ${role};`);
   try { return { rows: (await db.query(sql, params)).rows }; } catch (e) { return { err: e.message }; } finally { await db.exec('reset role'); }
@@ -60,14 +60,41 @@ check('e_membro true per Benedetto', r.rows?.[0]?.m === true, r);
 r = await as('authenticated', X, `select public.registra_chiamata(${id},'non_risponde','Intruso')`);
 check('estraneo non registra chiamate', !!r.err, r);
 r = await as('authenticated', B, `select public.segna_in_chiamata(${id}, 'Benedetto')`);
+check('segna restituisce chi sta chiamando', r.rows?.[0]?.segna_in_chiamata === 'Benedetto', r);
 r = await as('authenticated', B, `select in_chiamata_da, in_chiamata_dal from public.aziende where id=${id}`);
 check('segna_in_chiamata', r.rows?.[0]?.in_chiamata_da === 'Benedetto' && r.rows[0].in_chiamata_dal, r);
-r = await as('authenticated', L, `select * from public.registra_chiamata($1,'richiamare','Luca','Richiamare dopo le 17','Mario', null, now() + interval '1 day', null, null)`, [id]);
+r = await as('authenticated', L, `select (r->'azienda') || jsonb_build_object('id_chiamata', r->'chiamata'->'id', 'nota_chiamata', r->'chiamata'->>'nota') as a from public.registra_chiamata($1,'richiamare','Luca','Richiamare dopo le 17','Mario', null, now() + interval '1 day', null, null) r`, [id]); if (r.rows) r.rows = r.rows.map(x => x.a);
+check('registra_chiamata restituisce anche la riga di storico', r.rows?.[0]?.id_chiamata > 0 && r.rows[0].nota_chiamata === 'Richiamare dopo le 17', r);
 check('registra_chiamata aggiorna azienda', r.rows?.[0]?.esito === 'richiamare' && r.rows[0].tentativi === 1 && r.rows[0].referente === 'Mario' && r.rows[0].in_chiamata_da === null && r.rows[0].ultimo_chiamante === 'Luca', r);
-r = await as('authenticated', B, `select * from public.registra_chiamata($1,'demo_fissata','Benedetto','', '', 'a@b.it', null, now() + interval '3 day', 'Via Roma 1')`, [id]);
+r = await as('authenticated', B, `select r->'azienda' as a from public.registra_chiamata($1,'demo_fissata','Benedetto','', '', 'a@b.it', null, now() + interval '3 day', 'Via Roma 1') r`, [id]); if (r.rows) r.rows = r.rows.map(x => x.a);
 check('demo: referente mantenuto, appuntamento salvato, richiamo tolto', r.rows?.[0]?.referente === 'Mario' && r.rows[0].appuntamento_luogo === 'Via Roma 1' && r.rows[0].richiamo_il === null && r.rows[0].tentativi === 2 && r.rows[0].email === 'a@b.it', r);
 r = await as('authenticated', B, `select utente_nome, esito, nota, utente_id from public.storico_chiamate where azienda_id=$1 order by id`, [id]);
 check('storico: 2 righe, note non sovrascritte, utente_id', r.rows?.length === 2 && r.rows[0].nota === 'Richiamare dopo le 17' && r.rows[1].nota === null && r.rows[0].utente_id === L, r);
+// --- Atomicità ---
+let prima = (await db.query(`select count(*)::int n from public.storico_chiamate`)).rows[0].n;
+r = await as('authenticated', B, `select public.registra_chiamata($1,'esito_inventato','Benedetto','nota')`, [id]);
+let dopo = (await db.query(`select count(*)::int n from public.storico_chiamate`)).rows[0].n;
+check('esito non valido: errore e NESSUNA riga nello storico (tutto annullato)', !!r.err && prima === dopo, { r, prima, dopo });
+r = await as('authenticated', B, `select public.registra_chiamata(999999,'non_risponde','Benedetto')`);
+dopo = (await db.query(`select count(*)::int n from public.storico_chiamate`)).rows[0].n;
+check('azienda inesistente: errore e nessuna riga nello storico', !!r.err && prima === dopo, r);
+r = await as('authenticated', B, `select public.segna_in_chiamata($1, 'Benedetto') chi`, [id]);
+check('segna: Benedetto prende la chiamata', r.rows?.[0]?.chi === 'Benedetto', r);
+r = await as('authenticated', L, `select public.segna_in_chiamata($1, 'Luca') chi`, [id]);
+check('segna: Luca arriva dopo -> vince il primo (risponde "Benedetto")', r.rows?.[0]?.chi === 'Benedetto', r);
+r = await as('authenticated', L, `select public.segna_in_chiamata($1, 'Luca', true) chi`, [id]);
+check('segna: "Chiama lo stesso" (forza) passa a Luca', r.rows?.[0]?.chi === 'Luca', r);
+await db.query(`update public.aziende set in_chiamata_dal = now() - interval '11 minutes' where id = $1`, [id]);
+r = await as('authenticated', B, `select public.segna_in_chiamata($1, 'Benedetto') chi`, [id]);
+check('segna: dopo 10 minuti la chiamata di Luca è scaduta e Benedetto la prende', r.rows?.[0]?.chi === 'Benedetto', r);
+r = await as('authenticated', B, `insert into public.aziende (nome_azienda, telefono, in_chiamata_da, in_chiamata_dal) values ('Ora finta', '0824 444555', 'Benedetto', '2020-01-01') returning in_chiamata_dal > now() - interval '1 minute' as ora_server`);
+check('aggiungi già "in chiamata" in una sola scrittura, con l\'ora del server', r.rows?.[0]?.ora_server === true, r);
+r = await as('authenticated', B, `update public.aziende set in_chiamata_da = null where telefono = '+390824444555' returning in_chiamata_dal`);
+check('"Non l\'ho chiamato" toglie anche l\'ora', r.rows?.[0]?.in_chiamata_dal === null, r);
+r = await as('authenticated', B, `select (public.registra_chiamata($1,'segreteria','Benedetto'))->'azienda'->>'tentativi' t`, [id]);
+r2 = await as('authenticated', L, `select (public.registra_chiamata($1,'non_risponde','Luca'))->'azienda'->>'tentativi' t`, [id]);
+check('due chiamate di fila: tentativi contati entrambi (3 e 4)', r.rows?.[0]?.t === '3' && r2.rows?.[0]?.t === '4', [r, r2]);
+
 r = await as('authenticated', B, `update public.storico_chiamate set nota='x'`);
 check('storico non modificabile', !!r.err, r);
 r = await as('authenticated', B, `update public.aziende set note='Chiedere di Mario', telefono='0824 777 888' where id=$1 returning telefono`, [id]);

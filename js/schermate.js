@@ -151,6 +151,7 @@ export function Scheda({ id }) {
   const setRichiamo = v => { impostaRichiamo(v); setProblema(''); };
   const setAppuntamento = v => { impostaAppuntamento(v); setProblema(''); };
   const passo1 = useRef(null);
+  const salvataggio = useRef(false);
   const passo2 = useRef(null);
   const storico = a ? storicoDi(a.id) : [];
   const vaiAgliEsiti = () => passo1.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -193,6 +194,8 @@ export function Scheda({ id }) {
   async function salva(eProssimo) {
     if (e.chiede === 'richiamo' && !richiamo) { setProblema('Scegli quando richiamare.'); return; }
     if (e.chiede === 'appuntamento' && !appuntamento) { setProblema('Scegli giorno e ora della demo.'); return; }
+    if (salvataggio.current) return;  // doppio tocco: si salva una volta sola
+    salvataggio.current = true;
     setSalvo(true);
     try {
       await registraChiamata(a.id, {
@@ -212,6 +215,7 @@ export function Scheda({ id }) {
         setScelta(''); setNota(''); setRichiamo('');
       }
     } catch (err) { errore(err); }
+    salvataggio.current = false;
     setSalvo(false);
   }
 

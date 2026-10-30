@@ -84,12 +84,15 @@ export function creaClientFinto() {
     avvisaCanali(table, eventType, riga, old);
   };
 
-  function prepara(riga) {
+  // come il trigger prepara_azienda dello script SQL
+  function prepara(riga, vecchia) {
     if ('telefono' in riga) {
       riga.telefono = normalizzaTelefono(riga.telefono);
       if (!riga.telefono) throw { message: 'Numero di telefono non valido' };
     }
     riga.aggiornato_il = new Date().toISOString();
+    if (!riga.in_chiamata_da) riga.in_chiamata_dal = null;
+    else if (!vecchia || vecchia.in_chiamata_da !== riga.in_chiamata_da) riga.in_chiamata_dal = new Date().toISOString();
     return riga;
   }
 
@@ -124,7 +127,7 @@ export function creaClientFinto() {
       }
       if (this.op === 'update') {
         const cambiate = dati.filter(corrisponde).map(r => {
-          const nuova = prepara({ ...r, ...this.campi });
+          const nuova = prepara({ ...r, ...this.campi }, r);
           if (dati.some(x => x.id !== r.id && x.telefono === nuova.telefono)) throw { code: '23505', message: 'duplicate' };
           Object.assign(r, nuova); emetti(this.table, 'UPDATE', { ...r }); return { ...r };
         });
@@ -174,11 +177,16 @@ export function creaClientFinto() {
       const a = tabelle.aziende.find(x => x.id === p.p_azienda_id);
       if (!a) return { data: null, error: { message: 'Azienda non trovata' } };
       if (nome === 'segna_in_chiamata') {
-        Object.assign(a, { in_chiamata_da: p.p_nome, in_chiamata_dal: new Date().toISOString() });
-        emetti('aziende', 'UPDATE', { ...a });
-        return { data: null, error: null };
+        const libera = !a.in_chiamata_da || a.in_chiamata_da === p.p_nome || Date.now() - new Date(a.in_chiamata_dal) > 10 * 60000;
+        if (p.p_forza || libera) {
+          Object.assign(a, { in_chiamata_da: p.p_nome, in_chiamata_dal: new Date().toISOString(), aggiornato_il: new Date().toISOString() });
+          emetti('aziende', 'UPDATE', { ...a });
+        }
+        return { data: a.in_chiamata_da, error: null };
       }
       if (nome === 'registra_chiamata') {
+        const validi = ['nuovo', 'non_risponde', 'segreteria', 'parlato_titolare', 'parlato_altri', 'richiamare', 'manda_mail', 'demo_fissata', 'non_interessato', 'fuori_target'];
+        if (!validi.includes(p.p_esito)) return { data: null, error: { message: 'violates check constraint' } };
         const riga = { id: nuovoId("storico_chiamate"), azienda_id: a.id, utente_nome: p.p_nome, chiamata_il: new Date().toISOString(), esito: p.p_esito, nota: p.p_nota?.trim() || null };
         tabelle.storico.push(riga); emetti('storico_chiamate', 'INSERT', riga);
         Object.assign(a, {
@@ -187,10 +195,10 @@ export function creaClientFinto() {
           appuntamento_il: p.p_esito === 'demo_fissata' ? p.p_appuntamento_il : a.appuntamento_il,
           appuntamento_luogo: p.p_esito === 'demo_fissata' ? (p.p_appuntamento_luogo?.trim() || null) : a.appuntamento_luogo,
           in_chiamata_da: null, in_chiamata_dal: null, ultimo_chiamante: p.p_nome,
-          ultima_chiamata_il: new Date().toISOString(), tentativi: a.tentativi + 1,
+          ultima_chiamata_il: new Date().toISOString(), tentativi: a.tentativi + 1, aggiornato_il: new Date().toISOString(),
         });
         emetti('aziende', 'UPDATE', { ...a });
-        return { data: { ...a }, error: null };
+        return { data: { azienda: { ...a }, chiamata: riga }, error: null };
       }
       return { data: null, error: { message: 'funzione sconosciuta' } };
     },
