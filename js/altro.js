@@ -381,6 +381,6 @@ export function Importa() {
     ${passo === 4 && html`
       <div class="vuoto"><p class="grande-testo">✓ Aggiunti ${fatto} contatti</p>
         ${fatto < esame.nuove.length && html`<p>${esame.nuove.length - fatto} li aveva appena aggiunti qualcun altro.</p>`}</div>
-      <button class="pulsante primario grande largo" onClick=${() => vai('/')}>Vai a "Da chiamare"</button>`}
+      <button class="pulsante primario grande largo" onClick=${() => vai('/chiamare')}>Vai a "Da chiamare"</button>`}
   </main>`;
 }

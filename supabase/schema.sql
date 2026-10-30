@@ -62,6 +62,9 @@ create table if not exists public.membri (
   aggiunto_il timestamptz not null default now()
 );
 
+-- aggiunte dopo la prima versione (rieseguibili)
+alter table public.aziende add column if not exists mail_inviata_il timestamptz;
+
 create index if not exists aziende_comune_idx on public.aziende (comune);
 create index if not exists aziende_esito_idx on public.aziende (esito);
 create index if not exists aziende_richiamo_idx on public.aziende (richiamo_il) where richiamo_il is not null;

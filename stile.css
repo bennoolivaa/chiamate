@@ -138,8 +138,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 /* ---- Lista contatti ---- */
 .barra-cerca { position: sticky; top: 0; z-index: 5; padding: 4px 0 10px; background: var(--sfondo); }
 .barra-cerca input { margin: 0; }
-.filtri { display: flex; gap: 10px; margin-top: 4px; }
-.filtri label { flex: 1; margin-top: 10px; min-width: 0; }
+.filtri { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; margin-top: 4px; }
+.filtri label { margin-top: 10px; min-width: 0; }
+.filtri .filtro-largo { grid-column: 1 / -1; }
 .conteggio { margin: 14px 0 8px; font-weight: 700; }
 .conteggio .tenue { font-size: 15px; }
 .lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -307,3 +308,22 @@ table.anteprima { width: 100%; border-collapse: collapse; background: var(--cart
   .navigazione { justify-content: center; }
   .navigazione a { max-width: 160px; }
 }
+
+/* ---- Oggi ---- */
+.data-oggi { margin: -6px 0 12px; color: var(--tenue); font-weight: 600; }
+.azioni-oggi { margin-top: 0; }
+.miei-numeri { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; padding: 12px 6px; }
+.miei-numeri b { display: block; font-size: 24px; font-weight: 800; color: var(--blu); }
+.miei-numeri span { font-size: 13.5px; color: var(--tenue); font-weight: 600; line-height: 1.2; display: block; }
+.intestazione-lista { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 24px 0 4px; }
+.intestazione-lista h2 { font-size: 22px; font-weight: 800; }
+.quante { display: inline-block; min-width: 26px; padding: 0 8px; border-radius: 13px; background: var(--blu); color: #fff; font-size: 15px; line-height: 26px; text-align: center; vertical-align: middle; }
+.scelta-doppia { display: flex; background: #dde3ea; border-radius: 12px; padding: 3px; }
+.scelta-doppia button { min-height: 42px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font-weight: 700; font-size: 15px; color: var(--tenue); cursor: pointer; }
+.scelta-doppia button.attivo { background: var(--carta); color: var(--blu); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.voce { display: flex; align-items: center; gap: 10px; background: var(--carta); border-radius: 16px; padding: 6px 10px 6px 4px; border: 1.5px solid #dfe4ea; }
+.voce-rossa { border-left: 6px solid var(--rosso); }
+.voce > .pulsante { flex: none; }
+.voce-mail { flex-wrap: wrap; }
+.azioni-mail { display: flex; gap: 8px; width: 100%; padding: 0 0 6px 10px; }
+.azioni-mail .pulsante { flex: 1; font-size: 16px; }

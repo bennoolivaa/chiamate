@@ -12,11 +12,14 @@ Gli screenshot usano solo dati inventati.
 
 ## Come si usa (in breve)
 
-1. **Da chiamare**: tocca un'azienda → **Chiama** → torni nell'app e trovi **Com'è andata?** → scegli l'esito → **Salva e passa al prossimo**.
-2. Quando premi **Chiama**, gli altri vedono subito "📞 In chiamata: Benedetto". Se chiami e non salvi, resta scritto "Chiamata da Benedetto, esito non salvato".
-3. **＋ Aggiungi un numero**: scrivi o incolla il numero. Se c'è già, l'app ti dice chi l'ha chiamato. Se è nuovo, cerca da sola nome e comune su Pagine Gialle. Poi **Aggiungi e chiama**.
-4. Quando l'azienda vuole una demo, l'app consiglia **giorno e ora** in base agli appuntamenti già fissati, perché Alessandro guidi il meno possibile.
-5. **Altro** (in alto a destra): importare una lista, scaricare tutto in Excel, uscire.
+1. **Oggi** (la prima schermata): cosa fare adesso, in ordine di precedenza. Prima le chiamate fatte senza esito salvato, poi i richiami in ritardo, poi quelli di oggi, poi le mail da inviare e le demo di oggi e domani. Con **Inizia a chiamare** si apre il contatto migliore.
+2. **Da chiamare**: filtri per provincia, comune ed esito. Tocca un'azienda → **Chiama** (dal PC: **Sto chiamando**) → scegli com'è andata → **Salva e passa al prossimo**. Oppure **Salta ›** per passare oltre senza cambiare nulla.
+3. Quando premi **Chiama**, gli altri vedono subito "📞 In chiamata: Benedetto". Se chiami e non salvi, resta scritto "esito non salvato" e te lo ricorda **Oggi**.
+4. **Mail da inviare**: **Scrivi la mail** la apre già compilata (il testo si cambia in `js/config.js`, sezione `EMAIL`); **Mail inviata ✓** la toglie e la ripropone da richiamare dopo 3 giorni.
+5. **＋ Aggiungi un numero**: scrivi o incolla il numero; se c'è già ti dice chi l'ha chiamato; se è nuovo cerca da solo nome e comune su Pagine Gialle.
+6. **✨ Chiedi a Google** nella scheda: apre la modalità IA di Google per sapere cosa fa l'azienda e che fatturato ha.
+7. Quando l'azienda vuole una demo, l'app consiglia **giorno e ora** in base agli appuntamenti già fissati, perché Alessandro guidi il meno possibile.
+8. **Altro** (in alto a destra): importare una lista, scaricare tutto in Excel, uscire.
 
 ---
 

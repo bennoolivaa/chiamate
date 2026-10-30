@@ -32,6 +32,8 @@ function seme() {
   chiamata(aziende[18], 'Luca', fra(-1, 16), 'richiamare', 'Ha chiesto di richiamare', { richiamo_il: fra(-1, 17) });
   chiamata(aziende[9], 'Benedetto', fra(-2, 12), 'richiamare', null, { richiamo_il: fra(2, 10) });
   chiamata(aziende[10], 'Luca', fra(0, 10, 40), 'segreteria', null);
+  chiamata(aziende[19], 'Benedetto', fra(-1, 12), 'manda_mail', 'Vuole il materiale via mail', { email: 'ufficio@esempio.it', referente: 'Sig. Greco' });
+  chiamata(aziende[20], 'Luca', fra(-2, 11), 'manda_mail', null, { email: 'info@esempio.it' });
   // appuntamenti di novembre (come nell'esempio: 17 Avellino, 18 Caserta)
   const nov = (g, h, m = 0) => new Date(2026, 10, g, h, m).toISOString();
   [[11, 'Avellino', nov(17, 9, 30)], [12, 'Avellino', nov(17, 11, 30)], [13, 'Avellino', nov(17, 15)], [14, 'Caserta', nov(18, 10)], [15, 'Caserta', nov(18, 15)], [16, 'Benevento', nov(19, 10)]]

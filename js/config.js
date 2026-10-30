@@ -4,6 +4,18 @@ export const SUPABASE_KEY = 'sb_publishable_opoFLZ3PJTzymJ0nyhmrjQ_sbsNr00-';
 
 export const NOMI = ['Benedetto', 'Luca', 'Alessandro'];
 
+// Mail che si apre già compilata da "Mail da inviare". {referente} e {azienda} vengono sostituiti.
+export const EMAIL = {
+  oggetto: 'Aedify – il gestionale per imprese edili',
+  testo: `Buongiorno {referente},
+
+come d'accordo al telefono le scrivo per presentarle Aedify, il gestionale pensato per le imprese edili: cantieri, preventivi, ore e costi in un solo posto, anche dal telefono.
+
+Se le fa piacere, possiamo fissare una breve dimostrazione nella sua sede, senza impegno.
+
+Cordiali saluti`,
+};
+
 export const MINUTI_IN_CHIAMATA = 10;
 
 // Giri di Alessandro: servono a consigliare il giorno e l'ora migliore per una nuova demo

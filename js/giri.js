@@ -30,6 +30,21 @@ export function trovaComune(nome) {
   return elenco?.get(chiave(nome)) || null;
 }
 
+const PROVINCE = {
+  AV: 'Avellino', BN: 'Benevento', CE: 'Caserta', NA: 'Napoli', SA: 'Salerno',
+  CB: 'Campobasso', IS: 'Isernia', PZ: 'Potenza', MT: 'Matera', FG: 'Foggia', BA: 'Bari', BT: 'Barletta-Andria-Trani',
+  BR: 'Brindisi', LE: 'Lecce', TA: 'Taranto', RM: 'Roma', LT: 'Latina', FR: 'Frosinone', RI: 'Rieti', VT: 'Viterbo',
+};
+
+// Sigla della provincia di un comune ("BN"), vuota se il comune non è nell'elenco
+export function provinciaDi(nomeComune) {
+  return trovaComune(nomeComune)?.sigla || '';
+}
+
+export function nomeProvincia(sigla) {
+  return PROVINCE[sigla] ? `${sigla} – ${PROVINCE[sigla]}` : sigla;
+}
+
 function km(a, b) {
   const r = Math.PI / 180;
   const x = Math.sin((b.lat - a.lat) * r / 2) ** 2

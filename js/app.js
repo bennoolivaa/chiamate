@@ -4,8 +4,9 @@ import {
   stato, ascolta, avvia, accedi, esci, impostaNome, segnaInChiamata, chiamaUnAltro, chiChiama, chiamataSenzaEsito, liberaChiamata,
 } from './dati.js';
 import { messaggioErrore, minutiFa, dataOra, telefonoLeggibile } from './utili.js';
-import { DaChiamare, Scheda, Richiami, Appuntamenti, Numeri, richiamiDaFare } from './schermate.js';
+import { DaChiamare, Scheda, Richiami, Appuntamenti, Numeri } from './schermate.js';
 import { Altro, Aggiungi, Modifica, Importa } from './altro.js';
+import { Oggi, quanteCoseDaFare } from './oggi.js';
 
 // ---- Navigazione con l'indirizzo (#/richiami ecc.), così funziona anche il tasto "indietro" ----
 export function vai(percorso) { location.hash = '#' + percorso; }
@@ -123,7 +124,7 @@ export function AvvisoInChiamata({ azienda }) {
 export function Intestazione({ titolo, conIndietro, destra }) {
   return html`<header class="intestazione">
     ${conIndietro ? html`<button class="indietro" onClick=${() => puoiUscire() && indietro()}>‹ Indietro</button>
-      <button class="pulsante-home" onClick=${() => puoiUscire() && vai('/')} aria-label="Torna a Da chiamare">${icone.casa}<span>Home</span></button>` : html`<h1>${titolo}</h1>`}
+      <button class="pulsante-home" onClick=${() => puoiUscire() && vai('/')} aria-label="Torna alla schermata Oggi">${icone.casa}<span>Home</span></button>` : html`<h1>${titolo}</h1>`}
     ${destra !== undefined ? destra : html`<button class="pulsante-altro" onClick=${() => puoiUscire() && vai('/altro')}>Altro</button>`}
   </header>
   ${conIndietro && titolo ? html`<h1 class="titolo-pagina">${titolo}</h1>` : ''}`;
@@ -206,14 +207,17 @@ function NonAbilitato() {
 // ---- Barra in basso ----
 function Navigazione({ percorso }) {
   const s = useDati();
-  const quantiRichiami = richiamiDaFare(s).length;
   const voci = [
-    ['/', 'Da chiamare', icone.telefono],
-    ['/richiami', 'Richiami', icone.orologio, quantiRichiami],
+    ['/', 'Oggi', icone.casa, quanteCoseDaFare(s)],
+    ['/chiamare', 'Da chiamare', icone.telefono],
     ['/appuntamenti', 'Appuntamenti', icone.calendario],
     ['/numeri', 'Numeri', icone.numeri],
   ];
-  const attiva = p => p === '/' ? ['/', '/aggiungi'].includes(percorso) || percorso.startsWith('/azienda') : percorso.startsWith(p);
+  const attiva = p => {
+    if (p === '/') return percorso === '/' || percorso.startsWith('/richiami');
+    if (p === '/chiamare') return ['/chiamare', '/aggiungi'].includes(percorso) || percorso.startsWith('/azienda') || percorso.startsWith('/modifica');
+    return percorso.startsWith(p);
+  };
   return html`<nav class="navigazione">
     ${voci.map(([p, nome, icona, numero]) => html`
       <a href=${'#' + p} class=${attiva(p) ? 'attiva' : ''} aria-current=${attiva(p) ? 'page' : undefined}
@@ -226,6 +230,7 @@ function Navigazione({ percorso }) {
 function Schermata({ percorso }) {
   const [, nome, id] = percorso.split('/');
   switch (nome) {
+    case 'chiamare': return html`<${DaChiamare} />`;
     case 'richiami': return html`<${Richiami} />`;
     case 'appuntamenti': return html`<${Appuntamenti} />`;
     case 'numeri': return html`<${Numeri} />`;
@@ -235,7 +240,7 @@ function Schermata({ percorso }) {
     case 'azienda': return html`<${Scheda} key=${id} id=${Number(id)} />`;
     case 'modifica': return html`<${Modifica} key=${id} id=${Number(id)} />`;
     case 'nome': return html`<${SceltaNome} dopo=${indietro} />`;
-    default: return html`<${DaChiamare} />`;
+    default: return html`<${Oggi} />`;
   }
 }
 
@@ -249,7 +254,7 @@ function App() {
       posizioni[precedente] = window.scrollY;
       precedente = percorsoAttuale();
       setPercorso(precedente);
-      const torna = ['/', '/richiami', '/appuntamenti'].includes(precedente) ? posizioni[precedente] || 0 : 0;
+      const torna = ['/', '/chiamare', '/richiami', '/appuntamenti'].includes(precedente) ? posizioni[precedente] || 0 : 0;
       requestAnimationFrame(() => window.scrollTo(0, torna));
     };
     addEventListener('hashchange', cambio);

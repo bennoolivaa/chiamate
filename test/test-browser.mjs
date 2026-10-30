@@ -84,6 +84,42 @@ await prova('Accesso e scelta del nome', async () => {
   await page.getByText('Chi sei?').waitFor();
   await foto('02-chi-sei');
   await tocca('Benedetto');
+  await page.getByRole('heading', { name: 'Ciao Benedetto' }).waitFor();
+  await foto('00-oggi');
+});
+
+await prova('Oggi: cose da fare in ordine di precedenza, con mail da inviare', async () => {
+  const t = await testo();
+  const pos = ['Richiamare in ritardo', 'Richiamare oggi', 'Mail da inviare', 'Demo oggi e domani'].map(x => t.indexOf(x));
+  verifica(pos.slice(0, 3).every(x => x >= 0) && pos[0] < pos[1] && pos[1] < pos[2], JSON.stringify(pos));
+  verifica(t.includes('chiamate oggi') && t.includes('Inizia a chiamare'), 'mancano numeri o tasto');
+  const mailto = await page.getByRole('link', { name: /Scrivi la mail/ }).first().getAttribute('href');
+  verifica(mailto.startsWith('mailto:') && decodeURIComponent(mailto).includes('Aedify'), mailto);
+});
+
+await prova('Oggi: "Solo miei" nasconde le cose da fare degli altri', async () => {
+  const prima = await page.locator('.voce-mail').count();
+  await tocca('Solo miei');
+  const dopo = await page.locator('.voce-mail').count();
+  verifica(dopo < prima, `mail: ${prima} -> ${dopo}`);
+  await tocca('Tutti');
+});
+
+await prova('Oggi: "Mail inviata ✓" la toglie e la ripropone da richiamare tra 3 giorni', async () => {
+  const prima = await page.locator('.voce-mail').count();
+  await page.locator('.voce-mail').first().getByRole('button', { name: 'Mail inviata ✓' }).click();
+  await page.getByText('Te la ripropongo da richiamare').first().waitFor();
+  await page.waitForFunction(n => document.querySelectorAll('.voce-mail').length === n - 1, prima, { timeout: 3000 });
+  const a = await finto(async () => (await window.__finto.from('aziende').select('*')).data.find(x => x.esito === 'manda_mail' && x.mail_inviata_il));
+  verifica(a && a.richiamo_il && new Date(a.richiamo_il) > new Date(Date.now() + 2 * 86400000), JSON.stringify(a && { richiamo: a.richiamo_il }));
+});
+
+await prova('Oggi: "Inizia a chiamare" apre il contatto migliore', async () => {
+  await tocca('Inizia a chiamare ›');
+  await page.locator('.scheda-nome').waitFor();
+  await page.getByRole('button', { name: 'Torna alla schermata Oggi' }).click();
+  await page.getByRole('heading', { name: 'Ciao Benedetto' }).waitFor();
+  await page.getByRole('link', { name: /Da chiamare/ }).click();
   await page.getByRole('heading', { name: 'Da chiamare' }).waitFor();
 });
 
@@ -189,7 +225,8 @@ await prova('Richiamare: passo 3 obbligatorio, scorciatoia "Domani"', async () =
 });
 
 await prova('Richiami: scaduti in rosso e ordinati per ora', async () => {
-  await page.getByRole('link', { name: /Richiami/ }).click();
+  await page.getByRole('link', { name: /Oggi/ }).click();
+  await tocca('Tutti i richiami, anche dei prossimi giorni');
   await page.getByText('In ritardo').waitFor();
   await foto('07-richiami');
   const t = await testo();
@@ -248,6 +285,7 @@ await prova('Due finestre: premo Chiama, io vedo "Stai chiamando tu", Luca vede 
   await luca.getByLabel('Password', { exact: true }).fill('prova');
   await luca.getByRole('button', { name: 'Entra' }).click();
   await luca.getByRole('button', { name: 'Luca', exact: true }).click();
+  await luca.getByRole('link', { name: /Da chiamare/ }).click();
   await luca.getByPlaceholder('Cerca nome o numero').fill('Murature Campione Sas 24');
   await luca.locator('.riga').first().waitFor();
 
@@ -427,8 +465,9 @@ await prova('Tasto Home: dalla scheda torna a "Da chiamare"', async () => {
   await page.getByPlaceholder('Cerca nome o numero').fill('');
   await page.locator('.riga-testo').first().click();
   await page.locator('.scheda-nome').waitFor();
-  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
-  await page.getByRole('heading', { name: 'Da chiamare' }).waitFor({ timeout: 3000 });
+  await page.getByRole('button', { name: 'Torna alla schermata Oggi' }).click();
+  await page.getByRole('heading', { name: 'Ciao Benedetto' }).waitFor({ timeout: 3000 });
+  await page.getByRole('link', { name: /Da chiamare/ }).click();
 });
 
 await prova('Scheda: tasto "Chiedi a Google" con nome, numero e domanda', async () => {
@@ -439,7 +478,7 @@ await prova('Scheda: tasto "Chiedi a Google" con nome, numero e domanda', async 
   const q = new URL(href).searchParams;
   verifica(href.startsWith('https://www.google.com/search') && q.get('udm') === '50' && q.get('q').includes(nome) && q.get('q').includes('fatturato'), href);
   verifica((await link.getAttribute('target')) === '_blank', 'non apre una nuova scheda');
-  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
+  await page.getByRole('button', { name: 'Torna alla schermata Oggi' }).click();
 });
 
 await prova('Salta: passa al prossimo senza cambiare nulla, e non ripropone i saltati', async () => {
@@ -458,7 +497,7 @@ await prova('Salta: passa al prossimo senza cambiare nulla, e non ripropone i sa
   verifica(terzo !== primo, 'ha riproposto quello appena saltato');
   const dopo = await finto(async id => JSON.stringify((await window.__finto.from('aziende').select('*').eq('id', id)).data[0]), id);
   verifica(prima === dopo, 'la scheda saltata è cambiata');
-  await page.getByRole('button', { name: 'Torna a Da chiamare' }).click();
+  await page.getByRole('button', { name: 'Torna alla schermata Oggi' }).click();
 });
 
 await prova('Dal PC: "Sto chiamando" segnala agli altri senza far partire la chiamata', async () => {
@@ -473,6 +512,7 @@ await prova('Dal PC: "Sto chiamando" segnala agli altri senza far partire la chi
   await p.getByLabel('Password', { exact: true }).fill('prova');
   await p.getByRole('button', { name: 'Entra' }).click();
   await p.getByRole('button', { name: 'Benedetto', exact: true }).click();
+  await p.getByRole('link', { name: /Da chiamare/ }).click();
   await p.locator('.riga-testo').first().click();
   const id = Number(await p.evaluate(() => location.hash.split('/')[2]));
   await p.getByRole('button', { name: 'Sto chiamando' }).click();
@@ -485,6 +525,21 @@ await prova('Dal PC: "Sto chiamando" segnala agli altri senza far partire la chi
   // sul telefono invece il tasto non c'è
   verifica(!(await page.getByRole('button', { name: 'Sto chiamando' }).count()), 'sul telefono compare "Sto chiamando"');
   await pc.close();
+});
+
+await prova('Filtro per provincia: AV mostra solo i comuni irpini', async () => {
+  await page.getByRole('link', { name: /Da chiamare/ }).click();
+  await page.getByPlaceholder('Cerca nome o numero').fill('');
+  await page.getByLabel('Esito').selectOption('demo_fissata');
+  await page.getByLabel('Provincia').selectOption('AV');
+  await aspetta(200);
+  const comuni = await page.locator('.riga-sotto').allInnerTexts();
+  verifica(comuni.length > 0 && comuni.every(c => /Avellino|Atripalda/.test(c)), comuni.join(' | '));
+  const opzioni = await page.getByLabel('Comune').locator('option').allInnerTexts();
+  verifica(!opzioni.includes('Benevento'), opzioni.join(','));
+  await foto('19-filtro-provincia');
+  await page.getByLabel('Provincia').selectOption('');
+  await page.getByLabel('Esito').selectOption('');
 });
 
 await prova('Manca internet: messaggio chiaro', async () => {

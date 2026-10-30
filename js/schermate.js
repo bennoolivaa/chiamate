@@ -5,7 +5,7 @@ import {
   useDati, vai, avviso, errore, Intestazione, PulsanteChiama, PulsanteSegna, BadgeInChiamata, AvvisoInChiamata,
   nonSalvato, puoiUscire, daPc,
 } from './app.js';
-import { caricaComuni, comuniPronti, consigliaDemo, tappeDelGiorno, stradaDelGiorno } from './giri.js';
+import { caricaComuni, comuniPronti, consigliaDemo, tappeDelGiorno, stradaDelGiorno, provinciaDi, nomeProvincia } from './giri.js';
 import {
   dataOra, soloOra, giornoLungo, telefonoLeggibile, inizioGiorno, stessoGiorno,
   scorciatoiaRichiamo, versoInput, daInput,
@@ -53,7 +53,7 @@ function ConsiglioDemo({ azienda, scegli, scelto }) {
 }
 
 // Filtri di "Da chiamare", ricordati finché l'app resta aperta (servono anche a "passa al prossimo")
-const filtri = { comune: '', esito: '', cerca: '' };
+const filtri = { provincia: '', comune: '', esito: '', cerca: '' };
 try { Object.assign(filtri, JSON.parse(sessionStorage.getItem('filtri') || '{}')); } catch (_) { /* niente */ }
 function salvaFiltri() { try { sessionStorage.setItem('filtri', JSON.stringify(filtri)); } catch (_) { /* niente */ } }
 
@@ -89,9 +89,16 @@ function dettaglioRiga(a) {
 // ---- Da chiamare ----
 export function DaChiamare() {
   const s = useDati();
+  useComuni();
   const [, ridisegna] = useState(0);
   const [quanti, setQuanti] = useState(60);
-  const imposta = (campo, valore) => { filtri[campo] = valore; salvaFiltri(); setQuanti(60); ridisegna(n => n + 1); };
+  const imposta = (campo, valore) => {
+    filtri[campo] = valore;
+    if (campo === 'provincia' && valore && filtri.comune && provinciaDi(filtri.comune) !== valore) filtri.comune = '';
+    salvaFiltri(); setQuanti(60); ridisegna(n => n + 1);
+  };
+  const province = [...new Set(s.aziende.map(a => provinciaDi(a.comune)).filter(Boolean))].sort();
+  const comuniVisibili = comuni().filter(c => !filtri.provincia || provinciaDi(c) === filtri.provincia);
 
   let lista;
   const cerca = filtri.cerca.trim();
@@ -111,13 +118,19 @@ export function DaChiamare() {
     </div>
     <button class="pulsante primario grande largo" onClick=${() => vai('/aggiungi')}>＋ Aggiungi un numero</button>
     ${!cerca && html`<div class="filtri">
+      <label>Provincia
+        <select value=${filtri.provincia} onChange=${e => imposta('provincia', e.target.value)}>
+          <option value="">Tutte</option>
+          ${province.map(p => html`<option value=${p}>${nomeProvincia(p)}</option>`)}
+        </select>
+      </label>
       <label>Comune
         <select value=${filtri.comune} onChange=${e => imposta('comune', e.target.value)}>
           <option value="">Tutti</option>
-          ${comuni().map(c => html`<option value=${c}>${c}</option>`)}
+          ${comuniVisibili.map(c => html`<option value=${c}>${c}</option>`)}
         </select>
       </label>
-      <label>Esito
+      <label class="filtro-largo">Esito
         <select value=${filtri.esito} onChange=${e => imposta('esito', e.target.value)}>
           <option value="">Da lavorare</option>
           <option value="nuovo">Nuovo</option>
@@ -143,7 +156,7 @@ function linkGoogleIA(a) {
 
 // Quelli saltati con "Salta" non vengono riproposti finché la lista non finisce
 const saltati = new Set();
-function prossimoDopo(id) {
+export function prossimoDopo(id) {
   const libera = a => a.id !== id && !chiamaUnAltro(a);
   const lista = daChiamare(filtri);
   let prossimo = lista.find(a => libera(a) && !saltati.has(a.id));
@@ -361,7 +374,7 @@ export function Richiami() {
     <${Riga} key=${a.id} azienda=${a} dettaglio=${html`<span class=${rosso ? 'rosso' : ''}><b>${stessoGiorno(a.richiamo_il, adesso) ? soloOra(a.richiamo_il) : dataOra(a.richiamo_il)}</b>${a.referente ? ` · chiedere di ${a.referente}` : ''}</span>`} />`)}</ul>`;
 
   return html`<main class="schermata">
-    <${Intestazione} titolo="Richiami" />
+    <${Intestazione} conIndietro titolo="Richiami" destra=${null} />
     ${!scaduti.length && !oggi.length && html`<div class="vuoto">Nessun richiamo per oggi 🎉</div>`}
     ${scaduti.length > 0 && html`<h2 class="sezione rosso">⚠️ In ritardo (${scaduti.length})</h2>${elenco(scaduti, true)}`}
     ${oggi.length > 0 && html`<h2 class="sezione">Oggi (${oggi.length})</h2>${elenco(oggi)}`}

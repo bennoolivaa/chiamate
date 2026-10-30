@@ -1,5 +1,6 @@
 import { SUPABASE_URL, SUPABASE_KEY, MINUTI_IN_CHIAMATA, ESITI_NASCOSTI } from './config.js';
-import { normalizzaTelefono, inizioGiorno } from './utili.js';
+import { normalizzaTelefono, inizioGiorno, scorciatoiaRichiamo } from './utili.js';
+import { provinciaDi } from './giri.js';
 
 // Stato condiviso dall'intera app. Le schermate si ridisegnano quando cambia.
 export const stato = {
@@ -196,6 +197,11 @@ export async function aggiornaAzienda(id, campi) {
   return data;
 }
 
+// Dopo aver mandato la mail la si richiama tra 3 giorni
+export async function segnaMailInviata(id) {
+  await aggiornaAzienda(id, { mail_inviata_il: new Date().toISOString(), richiamo_il: scorciatoiaRichiamo('tre') });
+}
+
 export async function eliminaAzienda(id) {
   const { error } = await db.from('aziende').delete().eq('id', id);
   if (error) throw error;
@@ -295,8 +301,9 @@ export function ordinaDaChiamare(lista) {
     || a.nome_azienda.localeCompare(b.nome_azienda, 'it'));
 }
 
-export function daChiamare({ comune = '', esito = '' } = {}) {
+export function daChiamare({ comune = '', esito = '', provincia = '' } = {}) {
   return ordinaDaChiamare(stato.aziende.filter(a =>
     (!comune || a.comune === comune)
+    && (!provincia || provinciaDi(a.comune) === provincia)
     && (esito ? a.esito === esito : !ESITI_NASCOSTI.includes(a.esito))));
 }
